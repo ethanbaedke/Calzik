@@ -61,19 +61,25 @@ CZRenderer::CZRenderer(HWND hwnd)
     mDevice->CreateInputLayout(layout, 2, vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &mInputLayout);
     mDeviceContext->IASetInputLayout(mInputLayout.Get());
 
-    vsBlob->Release();
-    psBlob->Release();
-
     // Create vertex buffer
     Vertex vertices[] = {
-        {  0.0f,  0.5f, 0.0f, 1.0f, 0.0f, 0.0f },
-        {  0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 0.0f },
-        { -0.5f, -0.5f, 0.0f, 0.0f, 0.0f, 1.0f }
+        { {0.0f, 0.5f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f} },
+        { {0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f, 1.0f} },
+        { {-0.5f, -0.5f, 0.0f}, {0.0f, 0.0f, 1.0f, 1.0f} }
     };
-    D3D11_BUFFER_DESC bd = {};
-    bd.ByteWidth = sizeof(vertices);
-    D3D11_SUBRESOURCE_DATA initData = { vertices };
-    mDevice->CreateBuffer(&bd, &initData, mVertexBuffer.GetAddressOf());
+    D3D11_BUFFER_DESC vertexBufferDesc = {};
+    vertexBufferDesc.ByteWidth = sizeof(vertices);
+    D3D11_SUBRESOURCE_DATA vertexBufferData = { vertices };
+    mDevice->CreateBuffer(&vertexBufferDesc, &vertexBufferData, mVertexBuffer.GetAddressOf());
+
+    // Create index buffer
+    UINT16 indices[] = {
+        0, 1, 2
+    };
+    D3D11_BUFFER_DESC indexBufferDesc = {};
+    indexBufferDesc.ByteWidth = sizeof(indices);
+    D3D11_SUBRESOURCE_DATA indexBufferData = { indices };
+    mDevice->CreateBuffer(&indexBufferDesc, &indexBufferData, mIndexBuffer.GetAddressOf());
 }
 
 void CZRenderer::Render()
@@ -85,8 +91,9 @@ void CZRenderer::Render()
     UINT stride = sizeof(Vertex);
     UINT offset = 0;
     mDeviceContext->IASetVertexBuffers(0, 1, mVertexBuffer.GetAddressOf(), &stride, &offset);
+    mDeviceContext->IASetIndexBuffer(mIndexBuffer.Get(), DXGI_FORMAT_R16_UINT, 0);
     mDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    mDeviceContext->Draw(3, 0);
+    mDeviceContext->DrawIndexed(3, 0, 0);
 
     // Present the Frame
     mSwapChain->Present(1, 0);
