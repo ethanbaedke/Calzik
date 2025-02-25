@@ -15,16 +15,16 @@ CZRenderer::CZRenderer(HWND hwnd)
 
     D3D11CreateDeviceAndSwapChain(
         nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, 0, nullptr, 0,
-        D3D11_SDK_VERSION, &scd, &mSwapChain, &mDevice, nullptr, &mDeviceContext);
+        D3D11_SDK_VERSION, &scd, mSwapChain.GetAddressOf(), mDevice.GetAddressOf(), nullptr, mDeviceContext.GetAddressOf());
 
     // Get Back Buffer and Create Render Target View
-    ID3D11Texture2D* backBuffer = nullptr;
-    mSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)&backBuffer);
-    mDevice->CreateRenderTargetView(backBuffer, nullptr, &mRenderTargetView);
+    ComPtr<ID3D11Texture2D> backBuffer = nullptr;
+    mSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)backBuffer.GetAddressOf());
+    mDevice->CreateRenderTargetView(backBuffer.Get(), nullptr, mRenderTargetView.GetAddressOf());
     backBuffer->Release();
 
     // Set Render Target
-    mDeviceContext->OMSetRenderTargets(1, &mRenderTargetView, nullptr);
+    mDeviceContext->OMSetRenderTargets(1, mRenderTargetView.GetAddressOf(), nullptr);
 
     // Set Viewport
     D3D11_VIEWPORT viewport = {};
@@ -34,24 +34,24 @@ CZRenderer::CZRenderer(HWND hwnd)
     viewport.MaxDepth = 1.0f;
     mDeviceContext->RSSetViewports(1, &viewport);
 
-    ID3DBlob* vsBlob;
-    ID3DBlob* vsErrorBlob;
-    if (FAILED(D3DCompileFromFile(L"src/shaders/BasicShader.hlsl", nullptr, nullptr, "VSMain", "vs_5_0", 0, 0, &vsBlob, &vsErrorBlob)))
+    ComPtr<ID3DBlob> vsBlob;
+    ComPtr<ID3DBlob> vsErrorBlob;
+    if (FAILED(D3DCompileFromFile(L"src/shaders/BasicShader.hlsl", nullptr, nullptr, "VSMain", "vs_5_0", 0, 0, vsBlob.GetAddressOf(), vsErrorBlob.GetAddressOf())))
     {
         OutputDebugStringA((char*)vsErrorBlob->GetBufferPointer());
     }
 
-    ID3DBlob* psBlob;
-    ID3DBlob* psErrorBlob;
-    if (FAILED(D3DCompileFromFile(L"src/shaders/BasicShader.hlsl", nullptr, nullptr, "PSMain", "ps_5_0", 0, 0, &psBlob, &psErrorBlob)))
+    ComPtr<ID3DBlob> psBlob;
+    ComPtr<ID3DBlob> psErrorBlob;
+    if (FAILED(D3DCompileFromFile(L"src/shaders/BasicShader.hlsl", nullptr, nullptr, "PSMain", "ps_5_0", 0, 0, psBlob.GetAddressOf(), psErrorBlob.GetAddressOf())))
     {
         OutputDebugStringA((char*)psErrorBlob->GetBufferPointer());
     }
 
     mDevice->CreateVertexShader(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, &mVertexShader);
     mDevice->CreatePixelShader(psBlob->GetBufferPointer(), psBlob->GetBufferSize(), nullptr, &mPixelShader);
-    mDeviceContext->VSSetShader(mVertexShader, 0, 0);
-    mDeviceContext->PSSetShader(mPixelShader, 0, 0);
+    mDeviceContext->VSSetShader(mVertexShader.Get(), 0, 0);
+    mDeviceContext->PSSetShader(mPixelShader.Get(), 0, 0);
 
     // Define input layout
     D3D11_INPUT_ELEMENT_DESC layout[] = {
@@ -59,7 +59,7 @@ CZRenderer::CZRenderer(HWND hwnd)
         { "COLOR", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 }
     };
     mDevice->CreateInputLayout(layout, 2, vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &mInputLayout);
-    mDeviceContext->IASetInputLayout(mInputLayout);
+    mDeviceContext->IASetInputLayout(mInputLayout.Get());
 
     vsBlob->Release();
     psBlob->Release();
@@ -73,18 +73,18 @@ CZRenderer::CZRenderer(HWND hwnd)
     D3D11_BUFFER_DESC bd = {};
     bd.ByteWidth = sizeof(vertices);
     D3D11_SUBRESOURCE_DATA initData = { vertices };
-    mDevice->CreateBuffer(&bd, &initData, &mVertexBuffer);
+    mDevice->CreateBuffer(&bd, &initData, mVertexBuffer.GetAddressOf());
 }
 
 void CZRenderer::Render()
 {
     // Clear Screen with a Color
     float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
-    mDeviceContext->ClearRenderTargetView(mRenderTargetView, clearColor);
+    mDeviceContext->ClearRenderTargetView(mRenderTargetView.Get(), clearColor);
 
     UINT stride = sizeof(Vertex);
     UINT offset = 0;
-    mDeviceContext->IASetVertexBuffers(0, 1, &mVertexBuffer, &stride, &offset);
+    mDeviceContext->IASetVertexBuffers(0, 1, mVertexBuffer.GetAddressOf(), &stride, &offset);
     mDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     mDeviceContext->Draw(3, 0);
 
