@@ -34,10 +34,19 @@ CZRenderer::CZRenderer(HWND hwnd)
     viewport.MaxDepth = 1.0f;
     mDeviceContext->RSSetViewports(1, &viewport);
 
-    ID3DBlob* vsBlob = nullptr;
-    ID3DBlob* psBlob = nullptr;
-    CompileShader(mVertexShaderSource, "main", "vs_5_0", &vsBlob);
-    CompileShader(mPixelShaderSource, "main", "ps_5_0", &psBlob);
+    ID3DBlob* vsBlob;
+    ID3DBlob* vsErrorBlob;
+    if (FAILED(D3DCompileFromFile(L"src/shaders/BasicShader.hlsl", nullptr, nullptr, "VSMain", "vs_5_0", 0, 0, &vsBlob, &vsErrorBlob)))
+    {
+        OutputDebugStringA((char*)vsErrorBlob->GetBufferPointer());
+    }
+
+    ID3DBlob* psBlob;
+    ID3DBlob* psErrorBlob;
+    if (FAILED(D3DCompileFromFile(L"src/shaders/BasicShader.hlsl", nullptr, nullptr, "PSMain", "ps_5_0", 0, 0, &psBlob, &psErrorBlob)))
+    {
+        OutputDebugStringA((char*)psErrorBlob->GetBufferPointer());
+    }
 
     mDevice->CreateVertexShader(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, &mVertexShader);
     mDevice->CreatePixelShader(psBlob->GetBufferPointer(), psBlob->GetBufferSize(), nullptr, &mPixelShader);
@@ -81,18 +90,4 @@ void CZRenderer::Render()
 
     // Present the Frame
     mSwapChain->Present(1, 0);
-}
-
-HRESULT CZRenderer::CompileShader(const char* source, const char* entryPoint, const char* target, ID3DBlob** shaderBlob) {
-    ID3DBlob* errorBlob = nullptr;
-    HRESULT hr = D3DCompile(source, strlen(source), nullptr, nullptr, nullptr, entryPoint, target, 0, 0, shaderBlob, &errorBlob);
-    if (FAILED(hr)) {
-        if (errorBlob) {
-            OutputDebugStringA((char*)errorBlob->GetBufferPointer());
-            errorBlob->Release();
-        }
-        return hr;
-    }
-    if (errorBlob) errorBlob->Release();
-    return S_OK;
 }
