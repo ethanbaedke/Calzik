@@ -12,6 +12,7 @@ class CZRenderer
 public:
 	CZRenderer(HWND hwnd);
 	
+	void Update();
 	void Render();
 
 private:
@@ -19,15 +20,23 @@ private:
 	ComPtr<ID3D11Device> mDevice;
 	ComPtr<ID3D11DeviceContext> mDeviceContext;
 	ComPtr<ID3D11RenderTargetView> mRenderTargetView;
-	ComPtr<ID3D11Buffer> mVertexBuffer = nullptr;
-	ComPtr<ID3D11Buffer> mIndexBuffer = nullptr;
-	ComPtr<ID3D11VertexShader> mVertexShader = nullptr;
-	ComPtr<ID3D11PixelShader> mPixelShader = nullptr;
-	ComPtr<ID3D11InputLayout> mInputLayout = nullptr;
+	ComPtr<ID3D11Buffer> mVertexBuffer;
+	ComPtr<ID3D11Buffer> mIndexBuffer;
+	ComPtr<ID3D11VertexShader> mVertexShader;
+	ComPtr<ID3D11PixelShader> mPixelShader;
+	ComPtr<ID3D11InputLayout> mInputLayout;
+	ComPtr<ID3D11Buffer> mConstantBuffer;
 
 	struct Vertex
 	{
 		DirectX::XMFLOAT3 Position;
 		DirectX::XMFLOAT4 Color;
+	};
+
+	struct ConstantBuffer
+	{
+		DirectX::XMMATRIX world;
+		DirectX::XMMATRIX view;
+		DirectX::XMMATRIX proj;
 	};
 };

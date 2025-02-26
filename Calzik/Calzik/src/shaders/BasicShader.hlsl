@@ -1,3 +1,11 @@
+// Constant buffer
+cbuffer ConstantBuffer : register(b0)
+{
+    float4x4 world;
+    float4x4 view;
+    float4x4 proj;
+}
+
 // Vertex Shader
 struct VS_INPUT
 {
@@ -13,8 +21,10 @@ struct VS_OUTPUT
 
 VS_OUTPUT VSMain(VS_INPUT input)
 {
+    float4x4 worldViewProj = mul(mul(proj, view), world);
+    
     VS_OUTPUT output;
-    output.pos = float4(input.pos, 1.0f);
+    output.pos = mul(worldViewProj, float4(input.pos, 1.0f));
     output.color = input.color;
     return output;
 }
