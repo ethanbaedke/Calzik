@@ -142,10 +142,12 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\CZFBXLoader.cpp" />
+    <ClCompile Include="src\CZMesh.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\CZRenderer.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\CZMesh.h" />
     <ClInclude Include="src\CZRenderer.h" />
     <ClInclude Include="src\CZFBXLoader.h" />
   </ItemGroup>

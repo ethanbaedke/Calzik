@@ -1,98 +1,110 @@
 #include "CZFBXLoader.h"
 
+#include <stack>
+
 CZFBXLoader::CZFBXLoader()
 {
-	// Initialize the SDK manager. This object handles memory management.
-	FbxManager* lSdkManager = FbxManager::Create();
+}
+
+CZMesh* CZFBXLoader::LoadFBXFile(const char* filePath)
+{
+    // Initialize the SDK manager. This object handles memory management.
+    FbxManager* fbxManager = FbxManager::Create();
 
     // Create the IO settings object.
-    FbxIOSettings* ios = FbxIOSettings::Create(lSdkManager, IOSROOT);
-    lSdkManager->SetIOSettings(ios);
+    FbxIOSettings* fbxIOSettings = FbxIOSettings::Create(fbxManager, IOSROOT);
+    fbxManager->SetIOSettings(fbxIOSettings);
 
     // Create an importer using the SDK manager.
-    FbxImporter* lImporter = FbxImporter::Create(lSdkManager, "");
+    FbxImporter* fbxImporter = FbxImporter::Create(fbxManager, "");
 
     // Use the first argument as the filename for the importer.
-    lImporter->Initialize("fbx/Cube.fbx", -1, lSdkManager->GetIOSettings());
+    fbxImporter->Initialize(filePath, -1, fbxManager->GetIOSettings());
 
     // Create a new scene so that it can be populated by the imported file.
-    FbxScene* lScene = FbxScene::Create(lSdkManager, "CubeScene");
+    FbxScene* fbxScene = FbxScene::Create(fbxManager, "CubeScene");
 
     // Import the contents of the file into the scene.
-    lImporter->Import(lScene);
+    fbxImporter->Import(fbxScene);
 
     // The file is imported, so get rid of the importer.
-    lImporter->Destroy();
+    fbxImporter->Destroy();
 
-    // Grab the nodes of the scene and their attributes recursively.
-    FbxNode* lRootNode = lScene->GetRootNode();
-    if (lRootNode) {
-        for (int i = 0; i < lRootNode->GetChildCount(); i++)
-            PrintNode(lRootNode->GetChild(i));
+    // DFS through all nodes in the scene
+    FbxNode* rootNode = fbxScene->GetRootNode();
+    std::stack<FbxNode*> dfsStack;
+    dfsStack.push(rootNode);
+    while (!dfsStack.empty())
+    {
+        // Get the next node in the tree
+        FbxNode* currentNode = dfsStack.top();
+        dfsStack.pop();
+
+        // Print the node and its attributes
+        PrintNode(currentNode);
+        for (int i = 0; i < currentNode->GetNodeAttributeCount(); i++)
+        {
+            FbxNodeAttribute* currentAttribute = currentNode->GetNodeAttributeByIndex(i);
+            PrintAttribute(currentAttribute);
+        }
+
+        for (int i = 0; i < currentNode->GetChildCount(); i++)
+        {
+            dfsStack.push(currentNode->GetChild(i));
+        }
     }
 
     // Destroy the SDK manager and all the other objects it was handling.
-    lSdkManager->Destroy();
+    fbxManager->Destroy();
+
+    return nullptr;
 }
 
 void CZFBXLoader::PrintNode(FbxNode* pNode) {
-    printf("\n");
-    const char* nodeName = pNode->GetName();
+    printf("\nNODE\n");
+
     FbxDouble3 translation = pNode->LclTranslation.Get();
     FbxDouble3 rotation = pNode->LclRotation.Get();
     FbxDouble3 scaling = pNode->LclScaling.Get();
 
-    // Print the contents of the node.
-    printf("<node name='%s' translation='(%f, %f, %f)' rotation='(%f, %f, %f)' scaling='(%f, %f, %f)'>\n",
-        nodeName,
-        translation[0], translation[1], translation[2],
-        rotation[0], rotation[1], rotation[2],
-        scaling[0], scaling[1], scaling[2]
-    );
-
-    // Print the node's attributes.
-    for (int i = 0; i < pNode->GetNodeAttributeCount(); i++)
-        PrintAttribute(pNode->GetNodeAttributeByIndex(i));
-
-    // Recursively print the children.
-    for (int j = 0; j < pNode->GetChildCount(); j++)
-        PrintNode(pNode->GetChild(j));
-
-    printf("</node>\n");
+    printf("Name = '%s'\n", pNode->GetName());
+    printf("Translation = (%f, %f, %f)\n", translation[0], translation[1], translation[2]);
+    printf("Rotation = (%f, %f, %f)\n", rotation[0], rotation[1], rotation[2]);
+    printf("Scaling = (%f, %f, %f)\n", scaling[0], scaling[1], scaling[2]);
 }
 
 void CZFBXLoader::PrintAttribute(FbxNodeAttribute* pAttribute) {
-    if (!pAttribute) return;
+    printf("\n\tATTRIBUTE\n");
 
+    FbxString attributeName = pAttribute->GetName();
     FbxString typeName = GetAttributeTypeName(pAttribute->GetAttributeType());
-    FbxString attrName = pAttribute->GetName();
-    // Note: to retrieve the character array of a FbxString, use its Buffer() method.
-    printf("<attribute type='%s' name='%s'/>\n", typeName.Buffer(), attrName.Buffer());
+    printf("\tName = '%s'\n", attributeName.Buffer());
+    printf("\tType = '%s'\n", typeName.Buffer());
 }
 
 FbxString CZFBXLoader::GetAttributeTypeName(FbxNodeAttribute::EType type) {
     switch (type)
     {
-        case FbxNodeAttribute::eUnknown: return "unidentified";
-        case FbxNodeAttribute::eNull: return "null";
-        case FbxNodeAttribute::eMarker: return "marker";
-        case FbxNodeAttribute::eSkeleton: return "skeleton";
-        case FbxNodeAttribute::eMesh: return "mesh";
-        case FbxNodeAttribute::eNurbs: return "nurbs";
-        case FbxNodeAttribute::ePatch: return "patch";
-        case FbxNodeAttribute::eCamera: return "camera";
-        case FbxNodeAttribute::eCameraStereo: return "stereo";
-        case FbxNodeAttribute::eCameraSwitcher: return "camera switcher";
-        case FbxNodeAttribute::eLight: return "light";
-        case FbxNodeAttribute::eOpticalReference: return "optical reference";
-        case FbxNodeAttribute::eOpticalMarker: return "marker";
-        case FbxNodeAttribute::eNurbsCurve: return "nurbs curve";
-        case FbxNodeAttribute::eTrimNurbsSurface: return "trim nurbs surface";
-        case FbxNodeAttribute::eBoundary: return "boundary";
-        case FbxNodeAttribute::eNurbsSurface: return "nurbs surface";
-        case FbxNodeAttribute::eShape: return "shape";
-        case FbxNodeAttribute::eLODGroup: return "lodgroup";
-        case FbxNodeAttribute::eSubDiv: return "subdiv";
-        default: return "unknown";
+        case FbxNodeAttribute::eUnknown: return "Unknown";
+        case FbxNodeAttribute::eNull: return "Null";
+        case FbxNodeAttribute::eMarker: return "Marker";
+        case FbxNodeAttribute::eSkeleton: return "Skeleton";
+        case FbxNodeAttribute::eMesh: return "Mesh";
+        case FbxNodeAttribute::eNurbs: return "Nurbs";
+        case FbxNodeAttribute::ePatch: return "Patch";
+        case FbxNodeAttribute::eCamera: return "Camera";
+        case FbxNodeAttribute::eCameraStereo: return "CameraStereo";
+        case FbxNodeAttribute::eCameraSwitcher: return "CameraSwitcher";
+        case FbxNodeAttribute::eLight: return "Light";
+        case FbxNodeAttribute::eOpticalReference: return "OpticalReference";
+        case FbxNodeAttribute::eOpticalMarker: return "OpticalMarker";
+        case FbxNodeAttribute::eNurbsCurve: return "NurbsCurve";
+        case FbxNodeAttribute::eTrimNurbsSurface: return "TrimNurbsSurface";
+        case FbxNodeAttribute::eBoundary: return "Boundary";
+        case FbxNodeAttribute::eNurbsSurface: return "NurbsSurface";
+        case FbxNodeAttribute::eShape: return "Shape";
+        case FbxNodeAttribute::eLODGroup: return "LODGroup";
+        case FbxNodeAttribute::eSubDiv: return "SubDiv";
+        default: return "TypeNotFound";
     }
 }

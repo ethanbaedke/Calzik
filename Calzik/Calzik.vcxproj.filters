@@ -24,12 +24,18 @@
     <ClCompile Include="src\CZFBXLoader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\CZMesh.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\CZRenderer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\CZFBXLoader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\CZMesh.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -114,7 +114,7 @@ void CZRenderer::Update()
     static float angle = 0.0f;
     angle += 0.01f; // Rotate slowly
 
-    DirectX::XMMATRIX world = DirectX::XMMatrixRotationY(angle);
+    DirectX::XMMATRIX world = DirectX::XMMatrixRotationRollPitchYaw(angle, angle, angle);
     DirectX::XMMATRIX view = DirectX::XMMatrixLookAtLH(
         DirectX::XMVectorSet(0.0f, 1.0f, -3.0f, 1.0f),  // Eye Position
         DirectX::XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f),   // Look-at Position

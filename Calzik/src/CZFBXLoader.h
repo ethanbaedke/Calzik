@@ -1,11 +1,13 @@
 #pragma once
-
 #include <fbxsdk.h>
+
+#include "CZMesh.h"
 
 class CZFBXLoader
 {
 public:
 	CZFBXLoader();
+	CZMesh* LoadFBXFile(const char* filePath);
 
 private:
 	void PrintNode(FbxNode* pNode);
