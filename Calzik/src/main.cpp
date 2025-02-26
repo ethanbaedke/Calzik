@@ -1,5 +1,7 @@
 #include <Windows.h>
+#include <iostream>
 
+#include "CZFBXLoader.h"
 #include "CZRenderer.h"
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
@@ -15,6 +17,12 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 // Entry point for windows applications.
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
+    // Create console
+    AllocConsole();  // Allocate a new console
+    freopen_s((FILE**)stdout, "CONOUT$", "w", stdout);  // Redirect stdout
+    freopen_s((FILE**)stderr, "CONOUT$", "w", stderr);  // Redirect stderr
+    std::cout << "Console initialized!\n";
+
     const wchar_t CLASS_NAME[] = L"HelloWorldWindow";
 
     WNDCLASS wc = {};
@@ -33,6 +41,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     ShowWindow(hwnd, nShowCmd);
 
+    CZFBXLoader fbxLoader;
     CZRenderer renderer(hwnd);
 
     MSG msg = {};
