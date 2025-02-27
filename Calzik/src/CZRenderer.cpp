@@ -1,5 +1,7 @@
 #include "CZRenderer.h"
 
+#include "CZMesh.h"
+
 CZRenderer::CZRenderer(HWND hwnd)
 {
     DXGI_SWAP_CHAIN_DESC scd = {};
@@ -62,35 +64,7 @@ CZRenderer::CZRenderer(HWND hwnd)
     mDevice->CreateInputLayout(layout, 2, vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &mInputLayout);
     mDeviceContext->IASetInputLayout(mInputLayout.Get());
 
-    // Create vertex buffer
-    Vertex vertices[] = {
-        {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f, 1.0f}}, // 0
-        {{-0.5f, +0.5f, -0.5f}, {0.0f, 1.0f, 0.0f, 1.0f}}, // 1
-        {{+0.5f, +0.5f, -0.5f}, {0.0f, 0.0f, 1.0f, 1.0f}}, // 2
-        {{+0.5f, -0.5f, -0.5f}, {1.0f, 1.0f, 0.0f, 1.0f}}, // 3
-        {{-0.5f, -0.5f, +0.5f}, {1.0f, 0.0f, 1.0f, 1.0f}}, // 4
-        {{-0.5f, +0.5f, +0.5f}, {0.0f, 1.0f, 1.0f, 1.0f}}, // 5
-        {{+0.5f, +0.5f, +0.5f}, {1.0f, 1.0f, 1.0f, 1.0f}}, // 6
-        {{+0.5f, -0.5f, +0.5f}, {0.0f, 0.0f, 0.0f, 1.0f}}  // 7
-    };
-    D3D11_BUFFER_DESC vertexBufferDesc = {};
-    vertexBufferDesc.ByteWidth = sizeof(vertices);
-    D3D11_SUBRESOURCE_DATA vertexBufferData = { vertices };
-    mDevice->CreateBuffer(&vertexBufferDesc, &vertexBufferData, mVertexBuffer.GetAddressOf());
-
-    // Create index buffer
-    UINT16 indices[] = {
-        0, 1, 2, 0, 2, 3,  // Front
-        4, 6, 5, 4, 7, 6,  // Back
-        4, 5, 1, 4, 1, 0,  // Left
-        3, 2, 6, 3, 6, 7,  // Right
-        1, 5, 6, 1, 6, 2,  // Top
-        4, 0, 3, 4, 3, 7   // Bottom
-    };
-    D3D11_BUFFER_DESC indexBufferDesc = {};
-    indexBufferDesc.ByteWidth = sizeof(indices);
-    D3D11_SUBRESOURCE_DATA indexBufferData = { indices };
-    mDevice->CreateBuffer(&indexBufferDesc, &indexBufferData, mIndexBuffer.GetAddressOf());
+    czObjs = mFBXLoader.LoadFBXFile("fbx/Cube.fbx", mDevice.Get());
 
     // Create constant buffer
     D3D11_BUFFER_DESC cbDesc = {};
@@ -116,7 +90,7 @@ void CZRenderer::Update()
 
     DirectX::XMMATRIX world = DirectX::XMMatrixRotationRollPitchYaw(angle, angle, angle);
     DirectX::XMMATRIX view = DirectX::XMMatrixLookAtLH(
-        DirectX::XMVectorSet(0.0f, 1.0f, -3.0f, 1.0f),  // Eye Position
+        DirectX::XMVectorSet(0.0f, 1.0f, -5.0f, 1.0f),  // Eye Position
         DirectX::XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f),   // Look-at Position
         DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f)    // Up Vector
     );
@@ -140,10 +114,10 @@ void CZRenderer::Render()
     float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
     mDeviceContext->ClearRenderTargetView(mRenderTargetView.Get(), clearColor);
 
-    UINT stride = sizeof(Vertex);
+    UINT stride = sizeof(CZMesh::Vertex);
     UINT offset = 0;
-    mDeviceContext->IASetVertexBuffers(0, 1, mVertexBuffer.GetAddressOf(), &stride, &offset);
-    mDeviceContext->IASetIndexBuffer(mIndexBuffer.Get(), DXGI_FORMAT_R16_UINT, 0);
+    mDeviceContext->IASetVertexBuffers(0, 1, static_cast<CZMesh*>(czObjs[0])->VertexBuffer.GetAddressOf(), &stride, &offset);
+    mDeviceContext->IASetIndexBuffer(static_cast<CZMesh*>(czObjs[0])->IndexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
     mDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     mDeviceContext->DrawIndexed(36, 0, 0);
 

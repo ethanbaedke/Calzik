@@ -1,16 +1,26 @@
 #pragma once
-#include <fbxsdk.h>
 
+#include "CZObject.h"
 #include "CZMesh.h"
+
+#include <d3d11.h>
+#include <fbxsdk.h>
+#include <vector>
 
 class CZFBXLoader
 {
 public:
 	CZFBXLoader();
-	CZMesh* LoadFBXFile(const char* filePath);
+	~CZFBXLoader();
+	std::vector<CZObject*> LoadFBXFile(const char* filePath, ID3D11Device* device);
 
 private:
-	void PrintNode(FbxNode* pNode);
-	void PrintAttribute(FbxNodeAttribute* pAttribute);
+	std::vector<CZObject*> mCZObjects;
+
+	CZObject* ResolveAttribute(FbxNodeAttribute* attribute, ID3D11Device* device);
+	CZMesh* LoadMesh(FbxMesh* mesh, ID3D11Device* device);
+
+	void PrintNode(FbxNode* node);
+	void PrintAttribute(FbxNodeAttribute* attribute);
 	FbxString GetAttributeTypeName(FbxNodeAttribute::EType type);
 };

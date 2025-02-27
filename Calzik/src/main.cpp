@@ -1,6 +1,7 @@
 #include <Windows.h>
 #include <iostream>
 
+#include "CZObject.h"
 #include "CZFBXLoader.h"
 #include "CZRenderer.h"
 
@@ -41,8 +42,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     ShowWindow(hwnd, nShowCmd);
 
-    CZFBXLoader fbxLoader;
-    fbxLoader.LoadFBXFile("fbx/Cube.fbx");
     CZRenderer renderer(hwnd);
 
     MSG msg = {};
