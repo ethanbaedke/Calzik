@@ -94,12 +94,8 @@ CZRenderer::CZRenderer(HWND hwnd)
     mDevice->CreateSamplerState(&sampDesc, mSamplerState.GetAddressOf());
     mDeviceContext->PSSetSamplers(0, 1, mSamplerState.GetAddressOf());
 
-    // Load and bind the crate texture to pipeline
-    CZTexture czTex(mDevice.Get());
-    mDeviceContext->PSSetShaderResources(0, 1, czTex.TextureSRV.GetAddressOf());
-
     // Load cube object
-    czObjs = mFBXLoader.LoadFBXFile("fbx/Cube.fbx", mDevice.Get());
+    SortCZObjects(mFBXLoader.LoadFBXFile("fbx/Cube.fbx", mDevice.Get()));
 }
 
 void CZRenderer::Update()
@@ -135,11 +131,28 @@ void CZRenderer::Render()
 
     UINT stride = sizeof(CZMesh::Vertex);
     UINT offset = 0;
-    mDeviceContext->IASetVertexBuffers(0, 1, static_cast<CZMesh*>(czObjs[0])->VertexBuffer.GetAddressOf(), &stride, &offset);
-    mDeviceContext->IASetIndexBuffer(static_cast<CZMesh*>(czObjs[0])->IndexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
     mDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    mDeviceContext->DrawIndexed(36, 0, 0);
+
+    for (int i = 0; i < mMeshObjects.size(); i++)
+    {
+        // Bind the meshes texture to the pipeline
+        mDeviceContext->PSSetShaderResources(0, 1, mMeshObjects[i]->Texture->TextureSRV.GetAddressOf());
+
+        // Bind the meshes vertex and index buffers to the pipeline
+        mDeviceContext->IASetVertexBuffers(0, 1, mMeshObjects[i]->VertexBuffer.GetAddressOf(), & stride, & offset);
+        mDeviceContext->IASetIndexBuffer(mMeshObjects[i]->IndexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
+        mDeviceContext->DrawIndexed(mMeshObjects[i]->IndexCount, 0, 0);
+    }
 
     // Present the Frame
     mSwapChain->Present(1, 0);
+}
+
+void CZRenderer::SortCZObjects(std::vector<CZObject*> objs)
+{
+    for (int i = 0; i < objs.size(); i++)
+    {
+        if (CZMesh* mesh = dynamic_cast<CZMesh*>(objs[i]))
+            mMeshObjects.push_back(mesh);
+    }
 }

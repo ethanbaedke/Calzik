@@ -2,5 +2,6 @@
 
 class CZObject
 {
-
+public:
+	virtual ~CZObject() {}
 };

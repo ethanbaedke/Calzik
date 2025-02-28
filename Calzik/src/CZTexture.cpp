@@ -2,7 +2,7 @@
 
 #include <WICTextureLoader.h>
 
-CZTexture::CZTexture(ID3D11Device* device)
+CZTexture::CZTexture(ID3D11Device* device, const wchar_t* filePath)
 {
-	DirectX::CreateWICTextureFromFile(device, L"png/Crate.png", nullptr, TextureSRV.GetAddressOf());
+	DirectX::CreateWICTextureFromFile(device, filePath, nullptr, TextureSRV.GetAddressOf());
 }

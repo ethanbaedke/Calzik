@@ -1,6 +1,7 @@
 #include "CZMesh.h"
 
-CZMesh::CZMesh(ID3D11Device* device, std::vector<Vertex> vertexList, std::vector<UINT> indexList)
+CZMesh::CZMesh(ID3D11Device* device, std::vector<Vertex> vertexList, std::vector<UINT> indexList, CZTexture* texture)
+    : Texture(texture)
 {
     D3D11_BUFFER_DESC vertexBufferDesc = {};
     vertexBufferDesc.ByteWidth = sizeof(Vertex) * vertexList.size();
@@ -11,4 +12,6 @@ CZMesh::CZMesh(ID3D11Device* device, std::vector<Vertex> vertexList, std::vector
     indexBufferDesc.ByteWidth = sizeof(UINT) * indexList.size();
     D3D11_SUBRESOURCE_DATA indexBufferData = { indexList.data() };
     device->CreateBuffer(&indexBufferDesc, &indexBufferData, IndexBuffer.GetAddressOf());
+
+    IndexCount = indexList.size();
 }

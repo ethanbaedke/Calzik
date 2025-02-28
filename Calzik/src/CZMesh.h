@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CZObject.h"
+#include "CZTexture.h"
 
 #include <d3d11.h>
 #include <DirectXMath.h>
@@ -18,8 +19,11 @@ public:
 		DirectX::XMFLOAT2 UV;
 	};
 
+	CZTexture* Texture;
+
 	ComPtr<ID3D11Buffer> VertexBuffer;
 	ComPtr<ID3D11Buffer> IndexBuffer;
+	UINT IndexCount;
 
-	CZMesh(ID3D11Device* device, std::vector<Vertex> vertexList, std::vector<UINT> indexList);
+	CZMesh(ID3D11Device* device, std::vector<Vertex> vertexList, std::vector<UINT> indexList, CZTexture* texture);
 };

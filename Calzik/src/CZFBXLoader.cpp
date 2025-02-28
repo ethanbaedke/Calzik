@@ -1,7 +1,10 @@
 #include "CZFBXLoader.h"
 
+#include "CZTexture.h"
+
 #include <stack>
 #include <DirectXMath.h>
+#include <filesystem>
 
 CZFBXLoader::CZFBXLoader()
 {
@@ -9,9 +12,9 @@ CZFBXLoader::CZFBXLoader()
 
 CZFBXLoader::~CZFBXLoader()
 {
-    for (int i = 0; i < mCZObjects.size(); i++)
+    for (int i = 0; i < mCZMemory.size(); i++)
     {
-        delete mCZObjects[i];
+        delete mCZMemory[i];
     }
 }
 
@@ -39,7 +42,7 @@ std::vector<CZObject*> CZFBXLoader::LoadFBXFile(const char* filePath, ID3D11Devi
     // The file is imported, so get rid of the importer.
     fbxImporter->Destroy();
 
-    std::vector<CZObject*> czObjects;
+    std::vector<CZObject*> newObjs;
 
     // DFS through all nodes in the scene
     FbxNode* rootNode = fbxScene->GetRootNode();
@@ -63,9 +66,11 @@ std::vector<CZObject*> CZFBXLoader::LoadFBXFile(const char* filePath, ID3D11Devi
             PrintAttribute(currentAttribute);
 
             // Fill out a CZObject for the attribute if it's type is supported
-            CZObject* obj = ResolveAttribute(currentAttribute, device);
-            if (obj != nullptr)
-                czObjects.push_back(obj);
+            std::vector<CZObject*> objs = ResolveAttribute(currentAttribute, device);
+            for (int i = 0; i < objs.size(); i++)
+            {
+                newObjs.push_back(objs[i]);
+            }
         }
 
         for (int i = 0; i < currentNode->GetChildCount(); i++)
@@ -77,25 +82,23 @@ std::vector<CZObject*> CZFBXLoader::LoadFBXFile(const char* filePath, ID3D11Devi
     // Destroy the SDK manager and all the other objects it was handling.
     fbxManager->Destroy();
 
-    return czObjects;
+    return newObjs;
 }
 
-CZObject* CZFBXLoader::ResolveAttribute(FbxNodeAttribute* attribute, ID3D11Device* device)
+std::vector<CZObject*> CZFBXLoader::ResolveAttribute(FbxNodeAttribute* attribute, ID3D11Device* device)
 {
     switch (attribute->GetAttributeType())
     {
     case FbxNodeAttribute::eMesh:
     {
-        CZMesh* mesh = LoadMesh(static_cast<FbxMesh*>(attribute), device);
-        mCZObjects.push_back(mesh);
-        return mesh;
+        return LoadMesh(static_cast<FbxMesh*>(attribute), device);
     }
     default:
-        return nullptr;
+        return std::vector<CZObject*>();
     }
 }
 
-CZMesh* CZFBXLoader::LoadMesh(FbxMesh* mesh, ID3D11Device* device)
+std::vector<CZObject*> CZFBXLoader::LoadMesh(FbxMesh* mesh, ID3D11Device* device)
 {
     // A map holding each unique vertex data structure and its corresponding index
     std::unordered_map<CZMesh::Vertex, UINT> uniqueVertexMap;
@@ -148,9 +151,26 @@ CZMesh* CZFBXLoader::LoadMesh(FbxMesh* mesh, ID3D11Device* device)
         }
     }
 
-    // Create and return the mesh object
-    CZMesh* czMesh = new CZMesh(device, vertexList, indexList);
-    return czMesh;
+    // Grab the objects material
+    FbxSurfaceMaterial* material = mesh->GetNode()->GetMaterial(0);
+
+    // Get the diffuse texture name off the material
+    FbxProperty diffuseProp = material->FindProperty(FbxSurfaceMaterial::sDiffuse);
+    FbxFileTexture* texture = diffuseProp.GetSrcObject<FbxFileTexture>(0);
+    std::string texName = std::filesystem::path(texture->GetFileName()).filename().string();
+    std::wstring texPath = L"png/" + std::wstring(texName.begin(), texName.end());
+
+    // Create the texture object
+    CZTexture* czTex = new CZTexture(device, texPath.c_str());
+    mCZMemory.push_back(czTex);
+
+    // Create the mesh object
+    CZMesh* czMesh = new CZMesh(device, vertexList, indexList, czTex);
+    mCZMemory.push_back(czMesh);
+
+    std::vector<CZObject*> newObjs = { czTex, czMesh };
+
+    return newObjs;
 }
 
 void CZFBXLoader::PrintNode(FbxNode* node) {

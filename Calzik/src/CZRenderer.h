@@ -40,5 +40,7 @@ private:
 		DirectX::XMMATRIX proj;
 	};
 
-	std::vector<CZObject*> czObjs;
+	std::vector<CZMesh*> mMeshObjects;
+
+	void SortCZObjects(std::vector<CZObject*> objs);
 };
