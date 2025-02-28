@@ -1,7 +1,7 @@
 #include "CZMesh.h"
 
-CZMesh::CZMesh(ID3D11Device* device, std::vector<Vertex> vertexList, std::vector<UINT> indexList, CZTexture* texture)
-    : Texture(texture)
+CZMesh::CZMesh(ID3D11Device* device, std::vector<Vertex> vertexList, std::vector<UINT> indexList, CZTexture* texture, DirectX::XMMATRIX worldMatrix)
+    : WorldMatrix(worldMatrix), Texture(texture)
 {
     D3D11_BUFFER_DESC vertexBufferDesc = {};
     vertexBufferDesc.ByteWidth = sizeof(Vertex) * vertexList.size();
@@ -14,4 +14,19 @@ CZMesh::CZMesh(ID3D11Device* device, std::vector<Vertex> vertexList, std::vector
     device->CreateBuffer(&indexBufferDesc, &indexBufferData, IndexBuffer.GetAddressOf());
 
     IndexCount = indexList.size();
+
+    // Create mesh constant buffer
+    D3D11_BUFFER_DESC cbDesc = {};
+    cbDesc.ByteWidth = sizeof(MeshConstantBuffer);
+    cbDesc.Usage = D3D11_USAGE_DEFAULT;
+    cbDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+    cbDesc.CPUAccessFlags = 0;
+    cbDesc.MiscFlags = 0;
+    cbDesc.StructureByteStride = 0;
+
+    D3D11_SUBRESOURCE_DATA cbData = {};
+    MeshConstantBuffer cbValues = {};
+    cbData.pSysMem = &cbValues;
+
+    device->CreateBuffer(&cbDesc, &cbData, &ConstantBuffer);
 }

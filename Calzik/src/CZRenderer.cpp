@@ -65,22 +65,6 @@ CZRenderer::CZRenderer(HWND hwnd)
     mDevice->CreateInputLayout(layout, 2, vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &mInputLayout);
     mDeviceContext->IASetInputLayout(mInputLayout.Get());
 
-    // Create constant buffer
-    D3D11_BUFFER_DESC cbDesc = {};
-    cbDesc.ByteWidth = sizeof(ConstantBuffer);
-    cbDesc.Usage = D3D11_USAGE_DEFAULT;
-    cbDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-    cbDesc.CPUAccessFlags = 0;
-    cbDesc.MiscFlags = 0;
-    cbDesc.StructureByteStride = 0;
-
-    D3D11_SUBRESOURCE_DATA cbData = {};
-    ConstantBuffer cbValues = {};
-    cbData.pSysMem = &cbValues;
-
-    mDevice->CreateBuffer(&cbDesc, &cbData, &mConstantBuffer);
-    mDeviceContext->VSSetConstantBuffers(0, 1, mConstantBuffer.GetAddressOf());
-
     // Create the texture sampler state
     D3D11_SAMPLER_DESC sampDesc = {};
     sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
@@ -95,7 +79,7 @@ CZRenderer::CZRenderer(HWND hwnd)
     mDeviceContext->PSSetSamplers(0, 1, mSamplerState.GetAddressOf());
 
     // Load cube object
-    SortCZObjects(mFBXLoader.LoadFBXFile("fbx/Cube.fbx", mDevice.Get()));
+    SortCZObjects(mFBXLoader.LoadFBXFile("fbx/CrateArmy.fbx", mDevice.Get()));
 }
 
 void CZRenderer::Update()
@@ -103,9 +87,8 @@ void CZRenderer::Update()
     static float angle = 0.0f;
     angle += 0.01f; // Rotate slowly
 
-    DirectX::XMMATRIX world = DirectX::XMMatrixRotationRollPitchYaw(angle, angle, angle);
     DirectX::XMMATRIX view = DirectX::XMMatrixLookAtLH(
-        DirectX::XMVectorSet(0.0f, 1.0f, -5.0f, 1.0f),  // Eye Position
+        DirectX::XMVectorSet(0.0f, 1.0f, -20.0f, 1.0f),  // Eye Position
         DirectX::XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f),   // Look-at Position
         DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f)    // Up Vector
     );
@@ -115,12 +98,17 @@ void CZRenderer::Update()
         0.1f, 100.0f        // Near/Far Planes
     );
 
-    ConstantBuffer cbValues = {};
-    cbValues.world = world;
-    cbValues.view = view;
-    cbValues.proj = proj;
+    for (int i = 0; i < mMeshObjects.size(); i++)
+    {
+        DirectX::XMMATRIX world = DirectX::XMMatrixRotationRollPitchYaw(angle, angle, angle) * mMeshObjects[i]->WorldMatrix;
 
-    mDeviceContext->UpdateSubresource(mConstantBuffer.Get(), 0, nullptr, &cbValues, 0, 0);
+        CZMesh::MeshConstantBuffer meshCBValues = {};
+        meshCBValues.world = world;
+        meshCBValues.view = view;
+        meshCBValues.proj = proj;
+
+        mDeviceContext->UpdateSubresource(mMeshObjects[i]->ConstantBuffer.Get(), 0, nullptr, &meshCBValues, 0, 0);
+    }
 }
 
 void CZRenderer::Render()
@@ -142,6 +130,9 @@ void CZRenderer::Render()
         mDeviceContext->IASetVertexBuffers(0, 1, mMeshObjects[i]->VertexBuffer.GetAddressOf(), & stride, & offset);
         mDeviceContext->IASetIndexBuffer(mMeshObjects[i]->IndexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
         mDeviceContext->DrawIndexed(mMeshObjects[i]->IndexCount, 0, 0);
+
+        // Bind the meshes constant buffer
+        mDeviceContext->VSSetConstantBuffers(0, 1, mMeshObjects[i]->ConstantBuffer.GetAddressOf());
     }
 
     // Present the Frame

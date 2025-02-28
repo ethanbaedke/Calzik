@@ -30,15 +30,7 @@ private:
 	ComPtr<ID3D11VertexShader> mVertexShader;
 	ComPtr<ID3D11PixelShader> mPixelShader;
 	ComPtr<ID3D11InputLayout> mInputLayout;
-	ComPtr<ID3D11Buffer> mConstantBuffer;
 	ComPtr<ID3D11SamplerState> mSamplerState;
-
-	struct ConstantBuffer
-	{
-		DirectX::XMMATRIX world;
-		DirectX::XMMATRIX view;
-		DirectX::XMMATRIX proj;
-	};
 
 	std::vector<CZMesh*> mMeshObjects;
 

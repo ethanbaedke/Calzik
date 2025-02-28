@@ -151,6 +151,19 @@ std::vector<CZObject*> CZFBXLoader::LoadMesh(FbxMesh* mesh, ID3D11Device* device
         }
     }
 
+    // Get the objects transformation data
+    FbxMatrix globalTransform = mesh->GetNode()->EvaluateGlobalTransform();
+    DirectX::XMMATRIX worldMatrix = {
+        static_cast<float>(globalTransform.Get(0, 0)), static_cast<float>(globalTransform.Get(0, 1)),
+        static_cast<float>(globalTransform.Get(0, 2)), static_cast<float>(globalTransform.Get(0, 3)),
+        static_cast<float>(globalTransform.Get(1, 0)), static_cast<float>(globalTransform.Get(1, 1)),
+        static_cast<float>(globalTransform.Get(1, 2)), static_cast<float>(globalTransform.Get(1, 3)),
+        static_cast<float>(globalTransform.Get(2, 0)), static_cast<float>(globalTransform.Get(2, 1)),
+        static_cast<float>(globalTransform.Get(2, 2)), static_cast<float>(globalTransform.Get(2, 3)),
+        static_cast<float>(globalTransform.Get(3, 0)), static_cast<float>(globalTransform.Get(3, 1)),
+        static_cast<float>(globalTransform.Get(3, 2)), static_cast<float>(globalTransform.Get(3, 3))
+    };
+
     // Grab the objects material
     FbxSurfaceMaterial* material = mesh->GetNode()->GetMaterial(0);
 
@@ -165,7 +178,7 @@ std::vector<CZObject*> CZFBXLoader::LoadMesh(FbxMesh* mesh, ID3D11Device* device
     mCZMemory.push_back(czTex);
 
     // Create the mesh object
-    CZMesh* czMesh = new CZMesh(device, vertexList, indexList, czTex);
+    CZMesh* czMesh = new CZMesh(device, vertexList, indexList, czTex, worldMatrix);
     mCZMemory.push_back(czMesh);
 
     std::vector<CZObject*> newObjs = { czTex, czMesh };
