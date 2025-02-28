@@ -97,32 +97,59 @@ CZObject* CZFBXLoader::ResolveAttribute(FbxNodeAttribute* attribute, ID3D11Devic
 
 CZMesh* CZFBXLoader::LoadMesh(FbxMesh* mesh, ID3D11Device* device)
 {
-    // Load the xyz of the vertices into a contiguous list
-    std::vector<float> vertexPositions = std::vector<float>(mesh->GetControlPointsCount() * 3);
-    for (int i = 0; i < mesh->GetControlPointsCount(); i++)
-    {
-        FbxVector4 position = mesh->GetControlPointAt(i);
-        int baseIndex = i * 3;
-        vertexPositions[baseIndex] = position[0];
-        vertexPositions[baseIndex + 1] = position[1];
-        vertexPositions[baseIndex + 2] = position[2];
-    }
+    // A map holding each unique vertex data structure and its corresponding index
+    std::unordered_map<CZMesh::Vertex, UINT> uniqueVertexMap;
 
-    // Load indices into a contiguous list
-    std::vector<UINT> indices = std::vector<UINT>(mesh->GetPolygonCount() * 3);
-    for (int i = 0; i < mesh->GetPolygonCount(); i++)
-    {
-        int baseIndex = i * 3;
+    // Vertex and index lists to be filled out and passed to the mesh
+    std::vector<CZMesh::Vertex> vertexList;
+    std::vector<UINT> indexList;
 
-        // Iterate over the three indices of the triangle
-        for (int f = 0; f < 3; f++)
+    // Get all uv sets
+    FbxStringList uvSetNames;
+    mesh->GetUVSetNames(uvSetNames);
+
+    // Grab the diffuse uv set
+    FbxGeometryElementUV* diffuseUVElement = mesh->GetElementUV(uvSetNames[0]);
+
+    // Get the reference mode of the uv set
+    FbxGeometryElement::EReferenceMode diffuseUVRefMode = diffuseUVElement->GetReferenceMode();
+
+    // Iterate over every polygon
+    for (int polyIndex = 0; polyIndex < mesh->GetPolygonCount(); polyIndex++)
+    {
+        // Currently, we are assuming the mesh is triangulated
+        for (int vertIndex = 0; vertIndex < 3; vertIndex++)
         {
-            indices[baseIndex + f] = mesh->GetPolygonVertex(i, f);
+            int controlPointIndex = mesh->GetPolygonVertex(polyIndex, vertIndex);
+
+            // Get the vertex position
+            FbxVector4 pos = mesh->GetControlPointAt(controlPointIndex);
+
+            // Get the vertex UVs
+            FbxVector2 uv;
+            bool unmapped;
+            mesh->GetPolygonVertexUV(polyIndex, vertIndex, diffuseUVElement->GetName(), uv, unmapped);
+
+            // Fill out the vertex data
+            CZMesh::Vertex vert = {
+                {static_cast<float>(pos[0]), static_cast<float>(pos[1]), static_cast<float>(pos[2])},
+                {static_cast<float>(uv[0]), static_cast<float>(uv[1])}
+            };
+
+            // Add the data to the map if it doesn't already exist
+            if (uniqueVertexMap.count(vert) == 0)
+            {
+                UINT index = vertexList.size();
+                uniqueVertexMap[vert] = index;
+                vertexList.push_back(vert);
+            }
+
+            indexList.push_back(uniqueVertexMap[vert]);
         }
     }
 
     // Create and return the mesh object
-    CZMesh* czMesh = new CZMesh(vertexPositions, indices, device);
+    CZMesh* czMesh = new CZMesh(device, vertexList, indexList);
     return czMesh;
 }
 

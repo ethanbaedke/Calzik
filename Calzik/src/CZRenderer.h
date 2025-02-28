@@ -31,6 +31,7 @@ private:
 	ComPtr<ID3D11PixelShader> mPixelShader;
 	ComPtr<ID3D11InputLayout> mInputLayout;
 	ComPtr<ID3D11Buffer> mConstantBuffer;
+	ComPtr<ID3D11SamplerState> mSamplerState;
 
 	struct ConstantBuffer
 	{

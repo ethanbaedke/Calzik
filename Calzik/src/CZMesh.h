@@ -15,11 +15,11 @@ public:
 	struct Vertex
 	{
 		DirectX::XMFLOAT3 Position;
-		DirectX::XMFLOAT4 Color = { 1.0f, 1.0f, 1.0f, 1.0f };
+		DirectX::XMFLOAT2 UV;
 	};
 
 	ComPtr<ID3D11Buffer> VertexBuffer;
 	ComPtr<ID3D11Buffer> IndexBuffer;
 
-	CZMesh(const std::vector<float>& vertexPositions, const std::vector<UINT>& indices, ID3D11Device* device);
+	CZMesh(ID3D11Device* device, std::vector<Vertex> vertexList, std::vector<UINT> indexList);
 };

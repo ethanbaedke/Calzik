@@ -1,5 +1,6 @@
 #include "CZRenderer.h"
 
+#include "CZTexture.h"
 #include "CZMesh.h"
 
 CZRenderer::CZRenderer(HWND hwnd)
@@ -59,12 +60,10 @@ CZRenderer::CZRenderer(HWND hwnd)
     // Define input layout
     D3D11_INPUT_ELEMENT_DESC layout[] = {
         { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        { "COLOR", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 }
+        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 }
     };
     mDevice->CreateInputLayout(layout, 2, vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &mInputLayout);
     mDeviceContext->IASetInputLayout(mInputLayout.Get());
-
-    czObjs = mFBXLoader.LoadFBXFile("fbx/Cube.fbx", mDevice.Get());
 
     // Create constant buffer
     D3D11_BUFFER_DESC cbDesc = {};
@@ -81,6 +80,26 @@ CZRenderer::CZRenderer(HWND hwnd)
 
     mDevice->CreateBuffer(&cbDesc, &cbData, &mConstantBuffer);
     mDeviceContext->VSSetConstantBuffers(0, 1, mConstantBuffer.GetAddressOf());
+
+    // Create the texture sampler state
+    D3D11_SAMPLER_DESC sampDesc = {};
+    sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+    sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
+    sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
+    sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+    sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+    sampDesc.MinLOD = 0;
+    sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
+    
+    mDevice->CreateSamplerState(&sampDesc, mSamplerState.GetAddressOf());
+    mDeviceContext->PSSetSamplers(0, 1, mSamplerState.GetAddressOf());
+
+    // Load and bind the crate texture to pipeline
+    CZTexture czTex(mDevice.Get());
+    mDeviceContext->PSSetShaderResources(0, 1, czTex.TextureSRV.GetAddressOf());
+
+    // Load cube object
+    czObjs = mFBXLoader.LoadFBXFile("fbx/Cube.fbx", mDevice.Get());
 }
 
 void CZRenderer::Update()

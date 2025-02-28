@@ -6,6 +6,7 @@
 #include <d3d11.h>
 #include <fbxsdk.h>
 #include <vector>
+#include <unordered_map>
 
 class CZFBXLoader
 {
@@ -24,3 +25,19 @@ private:
 	void PrintAttribute(FbxNodeAttribute* attribute);
 	FbxString GetAttributeTypeName(FbxNodeAttribute::EType type);
 };
+
+namespace std {
+	template <>
+	struct hash<CZMesh::Vertex> {
+		size_t operator()(const CZMesh::Vertex& v) const {
+			return hash<float>()(v.Position.x) ^ hash<float>()(v.Position.y) ^ hash<float>()(v.Position.z) ^
+				hash<float>()(v.UV.x) ^ hash<float>()(v.UV.y);
+		}
+	};
+}
+
+static bool operator==(const CZMesh::Vertex& v1, const CZMesh::Vertex& v2)
+{
+	return v1.Position.x == v2.Position.x && v1.Position.y == v2.Position.y && v1.Position.z == v2.Position.z &&
+		v1.UV.x == v2.UV.x && v1.UV.y == v2.UV.y;
+}
