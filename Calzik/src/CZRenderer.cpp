@@ -5,6 +5,7 @@
 
 CZRenderer::CZRenderer(HWND hwnd)
 {
+    // Create swap chain
     DXGI_SWAP_CHAIN_DESC scd = {};
     scd.BufferCount = 1;
     scd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -20,13 +21,35 @@ CZRenderer::CZRenderer(HWND hwnd)
         nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, 0, nullptr, 0,
         D3D11_SDK_VERSION, &scd, mSwapChain.GetAddressOf(), mDevice.GetAddressOf(), nullptr, mDeviceContext.GetAddressOf());
 
+    // Create depth/stencil buffer
+    D3D11_TEXTURE2D_DESC depthBufferDesc = {};
+    depthBufferDesc.Width = 800;
+    depthBufferDesc.Height = 600;
+    depthBufferDesc.MipLevels = 1;
+    depthBufferDesc.ArraySize = 1;
+    depthBufferDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT; // 24-bit depth, 8-bit stencil
+    depthBufferDesc.SampleDesc.Count = 1;
+    depthBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+    depthBufferDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+
+    mDevice->CreateTexture2D(&depthBufferDesc, nullptr, mDepthStencilBuffer.GetAddressOf());
+    mDevice->CreateDepthStencilView(mDepthStencilBuffer.Get(), nullptr, mDepthStencilView.GetAddressOf());
+
+    D3D11_DEPTH_STENCIL_DESC depthStencilDesc = {};
+    depthStencilDesc.DepthEnable = TRUE;
+    depthStencilDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+    depthStencilDesc.DepthFunc = D3D11_COMPARISON_LESS; // Closer pixels pass
+
+    mDevice->CreateDepthStencilState(&depthStencilDesc, mDepthStencilState.GetAddressOf());
+    mDeviceContext->OMSetDepthStencilState(mDepthStencilState.Get(), 0);
+
     // Get Back Buffer and Create Render Target View
     ComPtr<ID3D11Texture2D> backBuffer = nullptr;
     mSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)backBuffer.GetAddressOf());
     mDevice->CreateRenderTargetView(backBuffer.Get(), nullptr, mRenderTargetView.GetAddressOf());
 
     // Set Render Target
-    mDeviceContext->OMSetRenderTargets(1, mRenderTargetView.GetAddressOf(), nullptr);
+    mDeviceContext->OMSetRenderTargets(1, mRenderTargetView.GetAddressOf(), mDepthStencilView.Get());
 
     // Set Viewport
     D3D11_VIEWPORT viewport = {};
@@ -51,6 +74,7 @@ CZRenderer::CZRenderer(HWND hwnd)
 
     mDevice->CreateBuffer(&fcbDesc, &fcbData, &mFrameConstantBuffer);
 
+    // Compile shaders
     UINT compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
 
     ComPtr<ID3DBlob> vsBlob;
@@ -96,7 +120,7 @@ CZRenderer::CZRenderer(HWND hwnd)
     mDeviceContext->PSSetSamplers(0, 1, mSamplerState.GetAddressOf());
 
     // Load cube object
-    SortCZObjects(mFBXLoader.LoadFBXFile("fbx/BigCrate.fbx", mDevice.Get()));
+    SortCZObjects(mFBXLoader.LoadFBXFile("fbx/CrateArmy.fbx", mDevice.Get()));
 }
 
 void CZRenderer::Update()
@@ -104,6 +128,7 @@ void CZRenderer::Update()
     static float angle = 0.0f;
     angle += 0.01f; // Rotate slowly
 
+    //DirectX::XMVECTOR eyeWorldPosition = DirectX::XMVectorSet(DirectX::XMScalarSin(angle) * 20, 0.0f, DirectX::XMScalarCos(angle) * 20, 1.0f);
     DirectX::XMVECTOR eyeWorldPosition = DirectX::XMVectorSet(0.0f, 0.0f, -20.0f, 1.0f);
 
     FrameConstantData fcdValues = {};
@@ -152,6 +177,7 @@ void CZRenderer::Render()
     // Clear Screen with a Color
     float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
     mDeviceContext->ClearRenderTargetView(mRenderTargetView.Get(), clearColor);
+    mDeviceContext->ClearDepthStencilView(mDepthStencilView.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
     UINT stride = sizeof(CZMesh::Vertex);
     UINT offset = 0;

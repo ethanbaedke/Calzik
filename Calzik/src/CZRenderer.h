@@ -35,6 +35,9 @@ private:
 	ComPtr<ID3D11Device> mDevice;
 	ComPtr<ID3D11DeviceContext> mDeviceContext;
 	ComPtr<ID3D11RenderTargetView> mRenderTargetView;
+	ComPtr<ID3D11Texture2D> mDepthStencilBuffer;
+	ComPtr<ID3D11DepthStencilView> mDepthStencilView;
+	ComPtr<ID3D11DepthStencilState> mDepthStencilState;
 	ComPtr<ID3D11VertexShader> mVertexShader;
 	ComPtr<ID3D11PixelShader> mPixelShader;
 	ComPtr<ID3D11InputLayout> mInputLayout;
