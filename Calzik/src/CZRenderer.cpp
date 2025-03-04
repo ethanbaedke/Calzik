@@ -76,9 +76,10 @@ CZRenderer::CZRenderer(HWND hwnd)
     D3D11_INPUT_ELEMENT_DESC layout[] = {
         { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
         { "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0},
-        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0 }
+        { "TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0},
+        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 36, D3D11_INPUT_PER_VERTEX_DATA, 0 }
     };
-    mDevice->CreateInputLayout(layout, 3, vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &mInputLayout);
+    mDevice->CreateInputLayout(layout, 4, vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &mInputLayout);
     mDeviceContext->IASetInputLayout(mInputLayout.Get());
 
     // Create the texture sampler state
@@ -95,7 +96,7 @@ CZRenderer::CZRenderer(HWND hwnd)
     mDeviceContext->PSSetSamplers(0, 1, mSamplerState.GetAddressOf());
 
     // Load cube object
-    SortCZObjects(mFBXLoader.LoadFBXFile("fbx/CrateArmy.fbx", mDevice.Get()));
+    SortCZObjects(mFBXLoader.LoadFBXFile("fbx/BigCrate.fbx", mDevice.Get()));
 }
 
 void CZRenderer::Update()
@@ -137,6 +138,11 @@ void CZRenderer::Update()
         ricbValues.view = view;
         ricbValues.proj = proj;
 
+        if (mMeshObjects[i]->DiffuseTexture != nullptr)
+            ricbValues.diffTexFlag = 1;
+        if (mMeshObjects[i]->NormalTexture != nullptr)
+            ricbValues.normTexFlag = 1;
+
         mDeviceContext->UpdateSubresource(mMeshObjects[i]->ConstantBuffer.Get(), 0, nullptr, &ricbValues, 0, 0);
     }
 }
@@ -152,20 +158,28 @@ void CZRenderer::Render()
     mDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
     // Set the frame constant buffer
-    mDeviceContext->PSSetConstantBuffers(0, 1, mFrameConstantBuffer.GetAddressOf());
+    mDeviceContext->PSSetConstantBuffers(1, 1, mFrameConstantBuffer.GetAddressOf());
 
     for (int i = 0; i < mMeshObjects.size(); i++)
     {
-        // Bind the meshes texture to the pipeline
-        mDeviceContext->PSSetShaderResources(0, 1, mMeshObjects[i]->Texture->TextureSRV.GetAddressOf());
+        // Bind any existing textures on the mesh to the pipeline
+        if (mMeshObjects[i]->DiffuseTexture != nullptr)
+        {
+            mDeviceContext->PSSetShaderResources(0, 1, mMeshObjects[i]->DiffuseTexture->TextureSRV.GetAddressOf());
+        }
+        if (mMeshObjects[i]->NormalTexture != nullptr)
+        {
+            mDeviceContext->PSSetShaderResources(1, 1, mMeshObjects[i]->NormalTexture->TextureSRV.GetAddressOf());
+        }
+
+        // Bind the meshes constant buffer to the vertex and pixel shader stages (pixel shader for flags)
+        mDeviceContext->VSSetConstantBuffers(0, 1, mMeshObjects[i]->ConstantBuffer.GetAddressOf());
+        mDeviceContext->PSSetConstantBuffers(0, 1, mMeshObjects[i]->ConstantBuffer.GetAddressOf());
 
         // Bind the meshes vertex and index buffers to the pipeline
         mDeviceContext->IASetVertexBuffers(0, 1, mMeshObjects[i]->VertexBuffer.GetAddressOf(), & stride, & offset);
         mDeviceContext->IASetIndexBuffer(mMeshObjects[i]->IndexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
         mDeviceContext->DrawIndexed(mMeshObjects[i]->IndexCount, 0, 0);
-
-        // Bind the meshes constant buffer
-        mDeviceContext->VSSetConstantBuffers(0, 1, mMeshObjects[i]->ConstantBuffer.GetAddressOf());
     }
 
     // Present the Frame

@@ -17,6 +17,7 @@ public:
 	{
 		DirectX::XMFLOAT3 Position;
 		DirectX::XMFLOAT3 Normal;
+		DirectX::XMFLOAT3 Tangent;
 		DirectX::XMFLOAT2 UV;
 	};
 
@@ -25,16 +26,20 @@ public:
 		DirectX::XMMATRIX world;
 		DirectX::XMMATRIX view;
 		DirectX::XMMATRIX proj;
+
+		int diffTexFlag = 0;
+		int normTexFlag = 0;
 	};
 
 	DirectX::XMMATRIX WorldMatrix;
 
-	CZTexture* Texture;
+	CZTexture* DiffuseTexture;
+	CZTexture* NormalTexture;
 
 	ComPtr<ID3D11Buffer> VertexBuffer;
 	ComPtr<ID3D11Buffer> IndexBuffer;
 	UINT IndexCount;
 	ComPtr<ID3D11Buffer> ConstantBuffer;
 
-	CZMesh(ID3D11Device* device, std::vector<Vertex> vertexList, std::vector<UINT> indexList, CZTexture* texture, DirectX::XMMATRIX worldMatrix);
+	CZMesh(ID3D11Device* device, std::vector<Vertex> vertexList, std::vector<UINT> indexList, CZTexture* diffuseTexture, CZTexture* normalTexture, DirectX::XMMATRIX worldMatrix);
 };

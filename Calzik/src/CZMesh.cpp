@@ -1,7 +1,7 @@
 #include "CZMesh.h"
 
-CZMesh::CZMesh(ID3D11Device* device, std::vector<Vertex> vertexList, std::vector<UINT> indexList, CZTexture* texture, DirectX::XMMATRIX worldMatrix)
-    : WorldMatrix(worldMatrix), Texture(texture)
+CZMesh::CZMesh(ID3D11Device* device, std::vector<Vertex> vertexList, std::vector<UINT> indexList, CZTexture* diffuseTexture, CZTexture* normalTexture, DirectX::XMMATRIX worldMatrix)
+    : WorldMatrix(worldMatrix), DiffuseTexture(diffuseTexture), NormalTexture(normalTexture)
 {
     D3D11_BUFFER_DESC vertexBufferDesc = {};
     vertexBufferDesc.ByteWidth = sizeof(Vertex) * vertexList.size();

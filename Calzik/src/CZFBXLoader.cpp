@@ -109,11 +109,8 @@ std::vector<CZObject*> CZFBXLoader::LoadMesh(FbxMesh* mesh, ID3D11Device* device
     FbxStringList uvSetNames;
     mesh->GetUVSetNames(uvSetNames);
 
-    // Grab the diffuse uv set
-    FbxGeometryElementUV* diffuseUVElement = mesh->GetElementUV(uvSetNames[0]);
-
-    // Get the reference mode of the uv set
-    FbxGeometryElement::EReferenceMode diffuseUVRefMode = diffuseUVElement->GetReferenceMode();
+    // Get the tangent element
+    FbxGeometryElementTangent* tangentElement = mesh->GetElementTangent(0);
 
     // Iterate over every polygon
     for (int polyIndex = 0; polyIndex < mesh->GetPolygonCount(); polyIndex++)
@@ -130,15 +127,34 @@ std::vector<CZObject*> CZFBXLoader::LoadMesh(FbxMesh* mesh, ID3D11Device* device
             FbxVector4 norm;
             mesh->GetPolygonVertexNormal(polyIndex, vertIndex, norm);
 
+            // Get the vertex tangent
+            FbxVector4 tang;
+            if (tangentElement)
+            {
+                int tangentIndex = (tangentElement->GetMappingMode() == FbxGeometryElement::eByControlPoint)
+                    ? controlPointIndex
+                    : (polyIndex * 3 + vertIndex);
+                if (tangentElement->GetReferenceMode() == FbxGeometryElement::eDirect)
+                {
+                    tang = tangentElement->GetDirectArray().GetAt(tangentIndex);
+                }
+                else if (tangentElement->GetReferenceMode() == FbxGeometryElement::eIndexToDirect)
+                {
+                    int index = tangentElement->GetIndexArray().GetAt(tangentIndex);
+                    tang = tangentElement->GetDirectArray().GetAt(index);
+                }
+            }
+
             // Get the vertex UVs
             FbxVector2 uv;
             bool unmapped;
-            mesh->GetPolygonVertexUV(polyIndex, vertIndex, diffuseUVElement->GetName(), uv, unmapped);
+            mesh->GetPolygonVertexUV(polyIndex, vertIndex, uvSetNames[0], uv, unmapped);
 
             // Fill out the vertex data
             CZMesh::Vertex vert = {
                 {static_cast<float>(pos[0]), static_cast<float>(pos[1]), static_cast<float>(pos[2])},
                 {static_cast<float>(norm[0]), static_cast<float>(norm[1]), static_cast<float>(norm[2])},
+                {static_cast<float>(tang[0]), static_cast<float>(tang[1]), static_cast<float>(tang[2])},
                 {static_cast<float>(uv[0]), static_cast<float>(uv[1])}
             };
 
@@ -170,21 +186,37 @@ std::vector<CZObject*> CZFBXLoader::LoadMesh(FbxMesh* mesh, ID3D11Device* device
     // Grab the objects material
     FbxSurfaceMaterial* material = mesh->GetNode()->GetMaterial(0);
 
-    // Get the diffuse texture name off the material
+    // Try and resolve a diffuse texture for the mesh
+    CZTexture* czDiffTex = nullptr;
     FbxProperty diffuseProp = material->FindProperty(FbxSurfaceMaterial::sDiffuse);
-    FbxFileTexture* texture = diffuseProp.GetSrcObject<FbxFileTexture>(0);
-    std::string texName = std::filesystem::path(texture->GetFileName()).filename().string();
-    std::wstring texPath = L"png/" + std::wstring(texName.begin(), texName.end());
+    FbxFileTexture* diffuseTex = diffuseProp.GetSrcObject<FbxFileTexture>(0);
+    if (diffuseTex)
+    {
+        std::string diffuseTexName = std::filesystem::path(diffuseTex->GetFileName()).filename().string();
+        std::wstring diffuseTexPath = L"png/" + std::wstring(diffuseTexName.begin(), diffuseTexName.end());
 
-    // Create the texture object
-    CZTexture* czTex = new CZTexture(device, texPath.c_str());
-    mCZMemory.push_back(czTex);
+        czDiffTex = new CZTexture(device, diffuseTexPath.c_str());
+        mCZMemory.push_back(czDiffTex);
+    }
+
+    // Try and resolve a normal texture for the mesh
+    CZTexture* czNormTex = nullptr;
+    FbxProperty normalProp = material->FindProperty(FbxSurfaceMaterial::sNormalMap);
+    FbxFileTexture* normalTex = normalProp.GetSrcObject<FbxFileTexture>(0);
+    if (normalTex)
+    {
+        std::string normalTexName = std::filesystem::path(normalTex->GetFileName()).filename().string();
+        std::wstring normalTexPath = L"png/" + std::wstring(normalTexName.begin(), normalTexName.end());
+
+        czNormTex = new CZTexture(device, normalTexPath.c_str());
+        mCZMemory.push_back(czNormTex);
+    }
 
     // Create the mesh object
-    CZMesh* czMesh = new CZMesh(device, vertexList, indexList, czTex, worldMatrix);
+    CZMesh* czMesh = new CZMesh(device, vertexList, indexList, czDiffTex, czNormTex, worldMatrix);
     mCZMemory.push_back(czMesh);
 
-    std::vector<CZObject*> newObjs = { czTex, czMesh };
+    std::vector<CZObject*> newObjs = { czDiffTex, czMesh };
 
     return newObjs;
 }
