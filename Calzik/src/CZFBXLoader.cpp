@@ -89,10 +89,8 @@ std::vector<CZObject*> CZFBXLoader::ResolveAttribute(FbxNodeAttribute* attribute
 {
     switch (attribute->GetAttributeType())
     {
-    case FbxNodeAttribute::eMesh:
-    {
-        return LoadMesh(static_cast<FbxMesh*>(attribute), device);
-    }
+    case FbxNodeAttribute::eMesh:   return LoadMesh(static_cast<FbxMesh*>(attribute), device); break;
+    case FbxNodeAttribute::eLight:  return LoadLight(static_cast<FbxLight*>(attribute), device); break;
     default:
         return std::vector<CZObject*>();
     }
@@ -128,6 +126,10 @@ std::vector<CZObject*> CZFBXLoader::LoadMesh(FbxMesh* mesh, ID3D11Device* device
             // Get the vertex position
             FbxVector4 pos = mesh->GetControlPointAt(controlPointIndex);
 
+            // Get the vertex normal
+            FbxVector4 norm;
+            mesh->GetPolygonVertexNormal(polyIndex, vertIndex, norm);
+
             // Get the vertex UVs
             FbxVector2 uv;
             bool unmapped;
@@ -136,6 +138,7 @@ std::vector<CZObject*> CZFBXLoader::LoadMesh(FbxMesh* mesh, ID3D11Device* device
             // Fill out the vertex data
             CZMesh::Vertex vert = {
                 {static_cast<float>(pos[0]), static_cast<float>(pos[1]), static_cast<float>(pos[2])},
+                {static_cast<float>(norm[0]), static_cast<float>(norm[1]), static_cast<float>(norm[2])},
                 {static_cast<float>(uv[0]), static_cast<float>(uv[1])}
             };
 
@@ -184,6 +187,33 @@ std::vector<CZObject*> CZFBXLoader::LoadMesh(FbxMesh* mesh, ID3D11Device* device
     std::vector<CZObject*> newObjs = { czTex, czMesh };
 
     return newObjs;
+}
+
+std::vector<CZObject*> CZFBXLoader::LoadLight(FbxLight* light, ID3D11Device* device)
+{
+    CZLight* czLight = nullptr;
+
+    FbxLight::EType lightType = light->LightType;
+    switch (lightType)
+    {
+    case FbxLight::ePoint:
+    {
+        FbxDouble3 pos = light->GetNode()->LclTranslation.Get();
+        DirectX::XMVECTOR dxPos = DirectX::XMVectorSet(static_cast<float>(pos[0]), static_cast<float>(pos[1]), static_cast<float>(pos[2]), 1.0f);
+        FbxDouble3 col = light->Color.Get();
+        DirectX::XMVECTOR dxCol = DirectX::XMVectorSet(static_cast<float>(col[0]), static_cast<float>(col[1]), static_cast<float>(col[2]), 1.0f);
+        czLight = new CZLight(dxPos, dxCol);
+        break;
+    }
+    case FbxLight::eDirectional:
+        return std::vector<CZObject*>(); // Unsupported
+    case FbxLight::eSpot:
+        return std::vector<CZObject*>(); // Unsupported
+    default:
+        break;
+    }
+
+    return { czLight };
 }
 
 void CZFBXLoader::PrintNode(FbxNode* node) {

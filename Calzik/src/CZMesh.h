@@ -16,10 +16,11 @@ public:
 	struct Vertex
 	{
 		DirectX::XMFLOAT3 Position;
+		DirectX::XMFLOAT3 Normal;
 		DirectX::XMFLOAT2 UV;
 	};
 
-	struct MeshConstantBuffer
+	struct RenderItemConstantData
 	{
 		DirectX::XMMATRIX world;
 		DirectX::XMMATRIX view;

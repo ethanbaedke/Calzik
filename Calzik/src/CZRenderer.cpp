@@ -36,6 +36,21 @@ CZRenderer::CZRenderer(HWND hwnd)
     viewport.MaxDepth = 1.0f;
     mDeviceContext->RSSetViewports(1, &viewport);
 
+    // Setup the frame constant buffer
+    D3D11_BUFFER_DESC fcbDesc = {};
+    fcbDesc.ByteWidth = sizeof(FrameConstantData);
+    fcbDesc.Usage = D3D11_USAGE_DEFAULT;
+    fcbDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+    fcbDesc.CPUAccessFlags = 0;
+    fcbDesc.MiscFlags = 0;
+    fcbDesc.StructureByteStride = 0;
+
+    D3D11_SUBRESOURCE_DATA fcbData = {};
+    FrameConstantData fcbValues = {};
+    fcbData.pSysMem = &fcbValues;
+
+    mDevice->CreateBuffer(&fcbDesc, &fcbData, &mFrameConstantBuffer);
+
     UINT compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
 
     ComPtr<ID3DBlob> vsBlob;
@@ -60,9 +75,10 @@ CZRenderer::CZRenderer(HWND hwnd)
     // Define input layout
     D3D11_INPUT_ELEMENT_DESC layout[] = {
         { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 }
+        { "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0},
+        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0 }
     };
-    mDevice->CreateInputLayout(layout, 2, vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &mInputLayout);
+    mDevice->CreateInputLayout(layout, 3, vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &mInputLayout);
     mDeviceContext->IASetInputLayout(mInputLayout.Get());
 
     // Create the texture sampler state
@@ -87,8 +103,22 @@ void CZRenderer::Update()
     static float angle = 0.0f;
     angle += 0.01f; // Rotate slowly
 
+    DirectX::XMVECTOR eyeWorldPosition = DirectX::XMVectorSet(0.0f, 0.0f, -20.0f, 1.0f);
+
+    FrameConstantData fcdValues = {};
+    fcdValues.eyeWorldPosition = eyeWorldPosition;
+
+    // Update light data
+    int lightInd = 0;
+    while (lightInd < MAX_LIGHTS && lightInd < mLightObjects.size())
+    {
+        fcdValues.lights[lightInd] = mLightObjects[lightInd]->LightingData;
+        lightInd++;
+    }
+    mDeviceContext->UpdateSubresource(mFrameConstantBuffer.Get(), 0, nullptr, &fcdValues, 0, 0);
+
     DirectX::XMMATRIX view = DirectX::XMMatrixLookAtLH(
-        DirectX::XMVectorSet(0.0f, 1.0f, -20.0f, 1.0f),  // Eye Position
+        eyeWorldPosition,  // Eye Position
         DirectX::XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f),   // Look-at Position
         DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f)    // Up Vector
     );
@@ -102,12 +132,12 @@ void CZRenderer::Update()
     {
         DirectX::XMMATRIX world = DirectX::XMMatrixRotationRollPitchYaw(angle, angle, angle) * mMeshObjects[i]->WorldMatrix;
 
-        CZMesh::MeshConstantBuffer meshCBValues = {};
-        meshCBValues.world = world;
-        meshCBValues.view = view;
-        meshCBValues.proj = proj;
+        CZMesh::RenderItemConstantData ricbValues = {};
+        ricbValues.world = world;
+        ricbValues.view = view;
+        ricbValues.proj = proj;
 
-        mDeviceContext->UpdateSubresource(mMeshObjects[i]->ConstantBuffer.Get(), 0, nullptr, &meshCBValues, 0, 0);
+        mDeviceContext->UpdateSubresource(mMeshObjects[i]->ConstantBuffer.Get(), 0, nullptr, &ricbValues, 0, 0);
     }
 }
 
@@ -120,6 +150,9 @@ void CZRenderer::Render()
     UINT stride = sizeof(CZMesh::Vertex);
     UINT offset = 0;
     mDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+    // Set the frame constant buffer
+    mDeviceContext->PSSetConstantBuffers(0, 1, mFrameConstantBuffer.GetAddressOf());
 
     for (int i = 0; i < mMeshObjects.size(); i++)
     {
@@ -145,5 +178,7 @@ void CZRenderer::SortCZObjects(std::vector<CZObject*> objs)
     {
         if (CZMesh* mesh = dynamic_cast<CZMesh*>(objs[i]))
             mMeshObjects.push_back(mesh);
+        else if (CZLight* light = dynamic_cast<CZLight*>(objs[i]))
+            mLightObjects.push_back(light);
     }
 }

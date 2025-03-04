@@ -21,6 +21,14 @@ public:
 	void Render();
 
 private:
+	static const UINT MAX_LIGHTS = 5;
+
+	struct FrameConstantData
+	{
+		DirectX::XMVECTOR eyeWorldPosition;
+		CZLight::LightData lights[MAX_LIGHTS];
+	};
+
 	CZFBXLoader mFBXLoader;
 
 	ComPtr<IDXGISwapChain> mSwapChain;
@@ -31,8 +39,10 @@ private:
 	ComPtr<ID3D11PixelShader> mPixelShader;
 	ComPtr<ID3D11InputLayout> mInputLayout;
 	ComPtr<ID3D11SamplerState> mSamplerState;
+	ComPtr<ID3D11Buffer> mFrameConstantBuffer;
 
 	std::vector<CZMesh*> mMeshObjects;
+	std::vector<CZLight*> mLightObjects;
 
 	void SortCZObjects(std::vector<CZObject*> objs);
 };

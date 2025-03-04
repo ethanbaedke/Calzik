@@ -17,7 +17,7 @@ CZMesh::CZMesh(ID3D11Device* device, std::vector<Vertex> vertexList, std::vector
 
     // Create mesh constant buffer
     D3D11_BUFFER_DESC cbDesc = {};
-    cbDesc.ByteWidth = sizeof(MeshConstantBuffer);
+    cbDesc.ByteWidth = sizeof(RenderItemConstantData);
     cbDesc.Usage = D3D11_USAGE_DEFAULT;
     cbDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
     cbDesc.CPUAccessFlags = 0;
@@ -25,7 +25,7 @@ CZMesh::CZMesh(ID3D11Device* device, std::vector<Vertex> vertexList, std::vector
     cbDesc.StructureByteStride = 0;
 
     D3D11_SUBRESOURCE_DATA cbData = {};
-    MeshConstantBuffer cbValues = {};
+    RenderItemConstantData cbValues = {};
     cbData.pSysMem = &cbValues;
 
     device->CreateBuffer(&cbDesc, &cbData, &ConstantBuffer);
