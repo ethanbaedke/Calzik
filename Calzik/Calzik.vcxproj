@@ -150,6 +150,7 @@
     <ClCompile Include="src\CZTexture.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\CZRenderer.cpp" />
+    <ClCompile Include="src\CZRenderTargetTexture.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\CZLight.h" />
@@ -157,6 +158,7 @@
     <ClInclude Include="src\CZObject.h" />
     <ClInclude Include="src\CZRenderer.h" />
     <ClInclude Include="src\CZFBXLoader.h" />
+    <ClInclude Include="src\CZRenderTargetTexture.h" />
     <ClInclude Include="src\CZTexture.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "CZRenderTargetTexture.h"
 #include "CZFBXLoader.h"
 #include "CZObject.h"
 #include "CZMesh.h"
@@ -16,6 +17,7 @@ class CZRenderer
 {
 public:
 	CZRenderer(HWND hwnd);
+	~CZRenderer();
 	
 	void Update();
 	void Render();
@@ -34,15 +36,14 @@ private:
 	ComPtr<IDXGISwapChain> mSwapChain;
 	ComPtr<ID3D11Device> mDevice;
 	ComPtr<ID3D11DeviceContext> mDeviceContext;
-	ComPtr<ID3D11RenderTargetView> mRenderTargetView;
-	ComPtr<ID3D11Texture2D> mDepthStencilBuffer;
-	ComPtr<ID3D11DepthStencilView> mDepthStencilView;
-	ComPtr<ID3D11DepthStencilState> mDepthStencilState;
 	ComPtr<ID3D11VertexShader> mVertexShader;
 	ComPtr<ID3D11PixelShader> mPixelShader;
 	ComPtr<ID3D11InputLayout> mInputLayout;
 	ComPtr<ID3D11SamplerState> mSamplerState;
 	ComPtr<ID3D11Buffer> mFrameConstantBuffer;
+
+	CZRenderTargetTexture* mBackBufferRenderTarget;
+	CZRenderTargetTexture* mTestSecondRenderTarget;
 
 	std::vector<CZMesh*> mMeshObjects;
 	std::vector<CZLight*> mLightObjects;

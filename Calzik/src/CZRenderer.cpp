@@ -21,43 +21,15 @@ CZRenderer::CZRenderer(HWND hwnd)
         nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, 0, nullptr, 0,
         D3D11_SDK_VERSION, &scd, mSwapChain.GetAddressOf(), mDevice.GetAddressOf(), nullptr, mDeviceContext.GetAddressOf());
 
-    // Create depth/stencil buffer
-    D3D11_TEXTURE2D_DESC depthBufferDesc = {};
-    depthBufferDesc.Width = 800;
-    depthBufferDesc.Height = 600;
-    depthBufferDesc.MipLevels = 1;
-    depthBufferDesc.ArraySize = 1;
-    depthBufferDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT; // 24-bit depth, 8-bit stencil
-    depthBufferDesc.SampleDesc.Count = 1;
-    depthBufferDesc.Usage = D3D11_USAGE_DEFAULT;
-    depthBufferDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
-
-    mDevice->CreateTexture2D(&depthBufferDesc, nullptr, mDepthStencilBuffer.GetAddressOf());
-    mDevice->CreateDepthStencilView(mDepthStencilBuffer.Get(), nullptr, mDepthStencilView.GetAddressOf());
-
-    D3D11_DEPTH_STENCIL_DESC depthStencilDesc = {};
-    depthStencilDesc.DepthEnable = TRUE;
-    depthStencilDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
-    depthStencilDesc.DepthFunc = D3D11_COMPARISON_LESS; // Closer pixels pass
-
-    mDevice->CreateDepthStencilState(&depthStencilDesc, mDepthStencilState.GetAddressOf());
-    mDeviceContext->OMSetDepthStencilState(mDepthStencilState.Get(), 0);
-
-    // Get Back Buffer and Create Render Target View
+    // Get the back buffer texture
     ComPtr<ID3D11Texture2D> backBuffer = nullptr;
     mSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)backBuffer.GetAddressOf());
-    mDevice->CreateRenderTargetView(backBuffer.Get(), nullptr, mRenderTargetView.GetAddressOf());
 
-    // Set Render Target
-    mDeviceContext->OMSetRenderTargets(1, mRenderTargetView.GetAddressOf(), mDepthStencilView.Get());
+    // Create a render target texture using it
+    mBackBufferRenderTarget = new CZRenderTargetTexture(mDevice.Get(), 800, 600, backBuffer.Get());
 
-    // Set Viewport
-    D3D11_VIEWPORT viewport = {};
-    viewport.Width = 800;
-    viewport.Height = 600;
-    viewport.MinDepth = 0.0f;
-    viewport.MaxDepth = 1.0f;
-    mDeviceContext->RSSetViewports(1, &viewport);
+    // TESTING
+    mTestSecondRenderTarget = new CZRenderTargetTexture(mDevice.Get(), 800, 600, nullptr);
 
     // Setup the frame constant buffer
     D3D11_BUFFER_DESC fcbDesc = {};
@@ -123,6 +95,11 @@ CZRenderer::CZRenderer(HWND hwnd)
     SortCZObjects(mFBXLoader.LoadFBXFile("fbx/CrateArmy.fbx", mDevice.Get()));
 }
 
+CZRenderer::~CZRenderer()
+{
+    delete mBackBufferRenderTarget;
+}
+
 void CZRenderer::Update()
 {
     static float angle = 0.0f;
@@ -176,8 +153,8 @@ void CZRenderer::Render()
 {
     // Clear Screen with a Color
     float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
-    mDeviceContext->ClearRenderTargetView(mRenderTargetView.Get(), clearColor);
-    mDeviceContext->ClearDepthStencilView(mDepthStencilView.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+    mBackBufferRenderTarget->Clear(mDeviceContext.Get(), clearColor);
+	mTestSecondRenderTarget->Clear(mDeviceContext.Get(), clearColor);
 
     UINT stride = sizeof(CZMesh::Vertex);
     UINT offset = 0;
@@ -186,12 +163,39 @@ void CZRenderer::Render()
     // Set the frame constant buffer
     mDeviceContext->PSSetConstantBuffers(1, 1, mFrameConstantBuffer.GetAddressOf());
 
+    // Render to test target
+    mTestSecondRenderTarget->BindAsTarget(mDeviceContext.Get());
     for (int i = 0; i < mMeshObjects.size(); i++)
     {
         // Bind any existing textures on the mesh to the pipeline
         if (mMeshObjects[i]->DiffuseTexture != nullptr)
         {
             mDeviceContext->PSSetShaderResources(0, 1, mMeshObjects[i]->DiffuseTexture->TextureSRV.GetAddressOf());
+        }
+        if (mMeshObjects[i]->NormalTexture != nullptr)
+        {
+            mDeviceContext->PSSetShaderResources(1, 1, mMeshObjects[i]->NormalTexture->TextureSRV.GetAddressOf());
+        }
+
+        // Bind the meshes constant buffer to the vertex and pixel shader stages (pixel shader for flags)
+        mDeviceContext->VSSetConstantBuffers(0, 1, mMeshObjects[i]->ConstantBuffer.GetAddressOf());
+        mDeviceContext->PSSetConstantBuffers(0, 1, mMeshObjects[i]->ConstantBuffer.GetAddressOf());
+
+        // Bind the meshes vertex and index buffers to the pipeline
+        mDeviceContext->IASetVertexBuffers(0, 1, mMeshObjects[i]->VertexBuffer.GetAddressOf(), &stride, &offset);
+        mDeviceContext->IASetIndexBuffer(mMeshObjects[i]->IndexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
+        mDeviceContext->DrawIndexed(mMeshObjects[i]->IndexCount, 0, 0);
+    }
+
+    // Render to back buffer
+    mBackBufferRenderTarget->BindAsTarget(mDeviceContext.Get());
+    for (int i = 0; i < mMeshObjects.size(); i++)
+    {
+        // Bind any existing textures on the mesh to the pipeline
+        if (mMeshObjects[i]->DiffuseTexture != nullptr)
+        {
+            mDeviceContext->PSSetShaderResources(0, 1, mTestSecondRenderTarget->ShaderResourceView.GetAddressOf());
+            //mDeviceContext->PSSetShaderResources(0, 1, mMeshObjects[i]->DiffuseTexture->TextureSRV.GetAddressOf());
         }
         if (mMeshObjects[i]->NormalTexture != nullptr)
         {
