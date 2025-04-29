@@ -31,6 +31,13 @@ private:
 		CZLight::LightData lights[MAX_LIGHTS];
 	};
 
+	struct ShadowMapConstantData
+	{
+		DirectX::XMVECTOR lightPos;
+		DirectX::XMMATRIX viewMatrix;
+		DirectX::XMMATRIX projectionMatrix;
+	};
+
 	CZFBXLoader mFBXLoader;
 
 	ComPtr<IDXGISwapChain> mSwapChain;
@@ -38,12 +45,16 @@ private:
 	ComPtr<ID3D11DeviceContext> mDeviceContext;
 	ComPtr<ID3D11VertexShader> mVertexShader;
 	ComPtr<ID3D11PixelShader> mPixelShader;
+	ComPtr<ID3D11VertexShader> mShadowVertexShader;
+	ComPtr<ID3D11PixelShader> mShadowPixelShader;
 	ComPtr<ID3D11InputLayout> mInputLayout;
 	ComPtr<ID3D11SamplerState> mSamplerState;
+	ComPtr<ID3D11SamplerState> mShadowMapSamplerState;
 	ComPtr<ID3D11Buffer> mFrameConstantBuffer;
+	ComPtr<ID3D11Buffer> mShadowMapConstantBuffer[MAX_LIGHTS];
 
 	CZRenderTargetTexture* mBackBufferRenderTarget;
-	CZRenderTargetTexture* mTestSecondRenderTarget;
+	CZRenderTargetTexture* mShadowMapRenderTarget[MAX_LIGHTS];
 
 	std::vector<CZMesh*> mMeshObjects;
 	std::vector<CZLight*> mLightObjects;

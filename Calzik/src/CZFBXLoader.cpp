@@ -240,7 +240,18 @@ std::vector<CZObject*> CZFBXLoader::LoadLight(FbxLight* light, ID3D11Device* dev
     case FbxLight::eDirectional:
         return std::vector<CZObject*>(); // Unsupported
     case FbxLight::eSpot:
-        return std::vector<CZObject*>(); // Unsupported
+    {
+        FbxDouble3 pos = light->GetNode()->LclTranslation.Get();
+        DirectX::XMVECTOR dxPos = DirectX::XMVectorSet(static_cast<float>(pos[0]), static_cast<float>(pos[1]), static_cast<float>(pos[2]), 1.0f);
+        FbxDouble3 col = light->Color.Get();
+        DirectX::XMVECTOR dxCol = DirectX::XMVectorSet(static_cast<float>(col[0]), static_cast<float>(col[1]), static_cast<float>(col[2]), 1.0f);
+        FbxVector4 dir = light->GetNode()->EvaluateGlobalTransform().GetColumn(2);
+        DirectX::XMVECTOR dxDir = DirectX::XMVector3Normalize(DirectX::XMVectorSet(static_cast<float>(dir[0]), static_cast<float>(dir[2]), -static_cast<float>(dir[1]), 0.0f));
+        DirectX::XMMATRIX dxViewMat = DirectX::XMMatrixLookAtLH(dxPos, DirectX::XMVectorAdd(dxPos, dxDir), DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f));
+        DirectX::XMMATRIX dxProjMat = DirectX::XMMatrixPerspectiveFovLH(DirectX::XM_PIDIV4, 1.0f, 0.1f, 100.0f);
+        czLight = new CZLight(dxPos, dxCol, dxViewMat, dxProjMat);
+        break;
+    }
     default:
         break;
     }

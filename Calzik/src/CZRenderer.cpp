@@ -28,8 +28,11 @@ CZRenderer::CZRenderer(HWND hwnd)
     // Create a render target texture using it
     mBackBufferRenderTarget = new CZRenderTargetTexture(mDevice.Get(), 800, 600, backBuffer.Get());
 
-    // TESTING
-    mTestSecondRenderTarget = new CZRenderTargetTexture(mDevice.Get(), 800, 600, nullptr);
+    // Create the shadow map target texture
+    for (int i = 0; i < 5; i++)
+    {
+        mShadowMapRenderTarget[i] = new CZRenderTargetTexture(mDevice.Get(), 2048, 2048, nullptr);
+    }
 
     // Setup the frame constant buffer
     D3D11_BUFFER_DESC fcbDesc = {};
@@ -45,6 +48,24 @@ CZRenderer::CZRenderer(HWND hwnd)
     fcbData.pSysMem = &fcbValues;
 
     mDevice->CreateBuffer(&fcbDesc, &fcbData, &mFrameConstantBuffer);
+
+    // Setup the shadow map constant buffer
+    D3D11_BUFFER_DESC smcbDesc = {};
+    smcbDesc.ByteWidth = sizeof(ShadowMapConstantData);
+    smcbDesc.Usage = D3D11_USAGE_DEFAULT;
+    smcbDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+    smcbDesc.CPUAccessFlags = 0;
+    smcbDesc.MiscFlags = 0;
+    smcbDesc.StructureByteStride = 0;
+
+    D3D11_SUBRESOURCE_DATA smcbData = {};
+    FrameConstantData smcbValues = {};
+    smcbData.pSysMem = &smcbValues;
+
+    for (int i = 0; i < MAX_LIGHTS; i++)
+    {
+        mDevice->CreateBuffer(&smcbDesc, &smcbData, &mShadowMapConstantBuffer[i]);
+    }
 
     // Compile shaders
     UINT compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
@@ -65,8 +86,23 @@ CZRenderer::CZRenderer(HWND hwnd)
 
     mDevice->CreateVertexShader(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, &mVertexShader);
     mDevice->CreatePixelShader(psBlob->GetBufferPointer(), psBlob->GetBufferSize(), nullptr, &mPixelShader);
-    mDeviceContext->VSSetShader(mVertexShader.Get(), 0, 0);
-    mDeviceContext->PSSetShader(mPixelShader.Get(), 0, 0);
+
+    ComPtr<ID3DBlob> vsShadowBlob;
+    ComPtr<ID3DBlob> vsShadowErrorBlob;
+    if (FAILED(D3DCompileFromFile(L"src/shaders/ShadowMap.hlsl", nullptr, nullptr, "VSMain", "vs_5_0", compileFlags, 0, vsShadowBlob.GetAddressOf(), vsShadowErrorBlob.GetAddressOf())))
+    {
+        OutputDebugStringA((char*)vsShadowErrorBlob->GetBufferPointer());
+    }
+
+    ComPtr<ID3DBlob> psShadowBlob;
+    ComPtr<ID3DBlob> psShadowErrorBlob;
+    if (FAILED(D3DCompileFromFile(L"src/shaders/ShadowMap.hlsl", nullptr, nullptr, "PSMain", "ps_5_0", compileFlags, 0, psShadowBlob.GetAddressOf(), psShadowErrorBlob.GetAddressOf())))
+    {
+        OutputDebugStringA((char*)psShadowErrorBlob->GetBufferPointer());
+    }
+
+    mDevice->CreateVertexShader(vsShadowBlob->GetBufferPointer(), vsShadowBlob->GetBufferSize(), nullptr, &mShadowVertexShader);
+    mDevice->CreatePixelShader(psShadowBlob->GetBufferPointer(), psShadowBlob->GetBufferSize(), nullptr, &mShadowPixelShader);
 
     // Define input layout
     D3D11_INPUT_ELEMENT_DESC layout[] = {
@@ -91,22 +127,44 @@ CZRenderer::CZRenderer(HWND hwnd)
     mDevice->CreateSamplerState(&sampDesc, mSamplerState.GetAddressOf());
     mDeviceContext->PSSetSamplers(0, 1, mSamplerState.GetAddressOf());
 
+    // Create the shadow texture sampler state
+    D3D11_SAMPLER_DESC shadowSampDesc = {};
+    shadowSampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+    shadowSampDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
+    shadowSampDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+    shadowSampDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+    shadowSampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+    shadowSampDesc.MinLOD = 0;
+    shadowSampDesc.MaxLOD = D3D11_FLOAT32_MAX;
+
+    mDevice->CreateSamplerState(&shadowSampDesc, mShadowMapSamplerState.GetAddressOf());
+    mDeviceContext->PSSetSamplers(1, 1, mShadowMapSamplerState.GetAddressOf());
+
     // Load cube object
-    SortCZObjects(mFBXLoader.LoadFBXFile("fbx/CrateArmy.fbx", mDevice.Get()));
+    SortCZObjects(mFBXLoader.LoadFBXFile("fbx/CubeFloor.fbx", mDevice.Get()));
 }
 
 CZRenderer::~CZRenderer()
 {
     delete mBackBufferRenderTarget;
+    for (int i = 0; i < MAX_LIGHTS; i++)
+    {
+        delete mShadowMapRenderTarget[i];
+    }
 }
 
 void CZRenderer::Update()
 {
     static float angle = 0.0f;
-    angle += 0.01f; // Rotate slowly
+    static float camAngle = 0.0f;
+    //angle += 0.01f; // Rotate slowly
+    angle += 0.00f; // No rotation
+    camAngle += 0.01f; // Rotate slowly
+    //camAngle += 0.00f; // No rotation
 
-    //DirectX::XMVECTOR eyeWorldPosition = DirectX::XMVectorSet(DirectX::XMScalarSin(angle) * 20, 0.0f, DirectX::XMScalarCos(angle) * 20, 1.0f);
-    DirectX::XMVECTOR eyeWorldPosition = DirectX::XMVectorSet(0.0f, 0.0f, -20.0f, 1.0f);
+    DirectX::XMVECTOR eyeWorldPosition = DirectX::XMVectorSet(DirectX::XMScalarSin(camAngle) * 20, 20.0f, DirectX::XMScalarCos(camAngle) * 20, 1.0f);
+    //DirectX::XMVECTOR eyeWorldPosition = DirectX::XMVectorSet(0.0f, 0.0f, -20.0f, 1.0f);
+    //DirectX::XMVECTOR eyeWorldPosition = DirectX::XMVectorSet(0.0f, 20.0f, -20.0f, 1.0f);
 
     FrameConstantData fcdValues = {};
     fcdValues.eyeWorldPosition = eyeWorldPosition;
@@ -116,6 +174,13 @@ void CZRenderer::Update()
     while (lightInd < MAX_LIGHTS && lightInd < mLightObjects.size())
     {
         fcdValues.lights[lightInd] = mLightObjects[lightInd]->LightingData;
+
+        ShadowMapConstantData smcd = {};
+        smcd.lightPos = mLightObjects[lightInd]->LightingData.position;
+        smcd.viewMatrix = mLightObjects[lightInd]->LightingData.viewMatrix;
+        smcd.projectionMatrix = mLightObjects[lightInd]->LightingData.projectionMatrix;
+        mDeviceContext->UpdateSubresource(mShadowMapConstantBuffer[lightInd].Get(), 0, nullptr, &smcd, 0, 0);
+
         lightInd++;
     }
     mDeviceContext->UpdateSubresource(mFrameConstantBuffer.Get(), 0, nullptr, &fcdValues, 0, 0);
@@ -154,48 +219,55 @@ void CZRenderer::Render()
     // Clear Screen with a Color
     float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
     mBackBufferRenderTarget->Clear(mDeviceContext.Get(), clearColor);
-	mTestSecondRenderTarget->Clear(mDeviceContext.Get(), clearColor);
+    for (int i = 0; i < MAX_LIGHTS; i++)
+    {
+        mShadowMapRenderTarget[i]->Clear(mDeviceContext.Get(), clearColor);
+    }
 
     UINT stride = sizeof(CZMesh::Vertex);
     UINT offset = 0;
     mDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
     // Set the frame constant buffer
+    mDeviceContext->VSSetConstantBuffers(1, 1, mFrameConstantBuffer.GetAddressOf());
     mDeviceContext->PSSetConstantBuffers(1, 1, mFrameConstantBuffer.GetAddressOf());
 
-    // Render to test target
-    mTestSecondRenderTarget->BindAsTarget(mDeviceContext.Get());
-    for (int i = 0; i < mMeshObjects.size(); i++)
+    // Render to shadow maps
+    mDeviceContext->VSSetShader(mShadowVertexShader.Get(), 0, 0);
+    mDeviceContext->PSSetShader(mShadowPixelShader.Get(), 0, 0);
+    for (int f = 0; f < mLightObjects.size(); f++)
     {
-        // Bind any existing textures on the mesh to the pipeline
-        if (mMeshObjects[i]->DiffuseTexture != nullptr)
-        {
-            mDeviceContext->PSSetShaderResources(0, 1, mMeshObjects[i]->DiffuseTexture->TextureSRV.GetAddressOf());
-        }
-        if (mMeshObjects[i]->NormalTexture != nullptr)
-        {
-            mDeviceContext->PSSetShaderResources(1, 1, mMeshObjects[i]->NormalTexture->TextureSRV.GetAddressOf());
-        }
+        mShadowMapRenderTarget[f]->BindAsTarget(mDeviceContext.Get());
+        mDeviceContext->VSSetConstantBuffers(2, 1, mShadowMapConstantBuffer[f].GetAddressOf());
+        mDeviceContext->PSSetConstantBuffers(2, 1, mShadowMapConstantBuffer[f].GetAddressOf());
 
-        // Bind the meshes constant buffer to the vertex and pixel shader stages (pixel shader for flags)
-        mDeviceContext->VSSetConstantBuffers(0, 1, mMeshObjects[i]->ConstantBuffer.GetAddressOf());
-        mDeviceContext->PSSetConstantBuffers(0, 1, mMeshObjects[i]->ConstantBuffer.GetAddressOf());
+        for (int i = 0; i < mMeshObjects.size(); i++)
+        {
+            // Bind the meshes constant buffer to the vertex and pixel shader stages (pixel shader for flags)
+            mDeviceContext->VSSetConstantBuffers(0, 1, mMeshObjects[i]->ConstantBuffer.GetAddressOf());
+            mDeviceContext->PSSetConstantBuffers(0, 1, mMeshObjects[i]->ConstantBuffer.GetAddressOf());
 
-        // Bind the meshes vertex and index buffers to the pipeline
-        mDeviceContext->IASetVertexBuffers(0, 1, mMeshObjects[i]->VertexBuffer.GetAddressOf(), &stride, &offset);
-        mDeviceContext->IASetIndexBuffer(mMeshObjects[i]->IndexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
-        mDeviceContext->DrawIndexed(mMeshObjects[i]->IndexCount, 0, 0);
+            // Bind the meshes vertex and index buffers to the pipeline
+            mDeviceContext->IASetVertexBuffers(0, 1, mMeshObjects[i]->VertexBuffer.GetAddressOf(), &stride, &offset);
+            mDeviceContext->IASetIndexBuffer(mMeshObjects[i]->IndexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
+            mDeviceContext->DrawIndexed(mMeshObjects[i]->IndexCount, 0, 0);
+        }
     }
 
     // Render to back buffer
     mBackBufferRenderTarget->BindAsTarget(mDeviceContext.Get());
+    mDeviceContext->VSSetShader(mVertexShader.Get(), 0, 0);
+    mDeviceContext->PSSetShader(mPixelShader.Get(), 0, 0);
+
+    mDeviceContext->PSSetShaderResources(2, 1, mShadowMapRenderTarget[0]->ShaderResourceView.GetAddressOf());
+
     for (int i = 0; i < mMeshObjects.size(); i++)
     {
         // Bind any existing textures on the mesh to the pipeline
         if (mMeshObjects[i]->DiffuseTexture != nullptr)
         {
-            mDeviceContext->PSSetShaderResources(0, 1, mTestSecondRenderTarget->ShaderResourceView.GetAddressOf());
-            //mDeviceContext->PSSetShaderResources(0, 1, mMeshObjects[i]->DiffuseTexture->TextureSRV.GetAddressOf());
+            //mDeviceContext->PSSetShaderResources(0, 1, mTestSecondRenderTarget->ShaderResourceView.GetAddressOf());
+            mDeviceContext->PSSetShaderResources(0, 1, mMeshObjects[i]->DiffuseTexture->TextureSRV.GetAddressOf());
         }
         if (mMeshObjects[i]->NormalTexture != nullptr)
         {
